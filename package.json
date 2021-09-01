@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "madui": "file:madlib_modules/MadUI"
+  },
+  "devDependencies": {
+    "browser-sync": "^2.27.5",
+    "copy-and-watch": "^0.1.5"
+  }
+}

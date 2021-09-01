@@ -1,0 +1,12 @@
+{
+  "name": "instigator",
+  "version": "0.0.1",
+  "main": "src/Main.mad",
+  "dependencies": [
+    {
+      "url": "https://github.com/madlib-lang/madui/archive/refs/tags/v1.0.0.zip",
+      "description": "MadUI",
+      "minVersion": "1.0.0"
+    }
+  ]
+}

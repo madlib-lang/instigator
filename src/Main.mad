@@ -1,0 +1,64 @@
+import IO from "IO"
+import { Just, Nothing } from 'Maybe'
+import type { Element } from 'MadUI'
+import { split } from 'String'
+import { find, len, slice } from 'List'
+import { ifElse, always, equals } from 'Function'
+import { lt } from 'Compare'
+
+// export type View a -> Element
+
+export alias RouteElement = {
+  path :: String,
+  el   :: Element 
+}
+
+// export type RouteView a = {
+//   path :: String,
+//   view :: View
+// }
+
+getLocation = (_) => #- window.location.pathname -#
+propOrWrappedDefault :: w -> z -> String -> x -> y
+propOrWrappedDefault = (Wrap, def, px, ob) => ( #- {
+  return (
+    !!ob[px] ?
+      Just(ob[px]) :
+      Wrap(def)
+  )
+} -# )
+matchURL = (routes, given) => pipe(
+  find(pipe(
+    propOrWrappedDefault(Nothing, '', 'path'),
+    IO.trace('path?'),
+    map(pipe(
+      split('/'),
+      slice(1, Infinity),
+      ifElse(
+        pipe(len, equals(len(given))),
+        equals(given),
+        always(false)
+      )
+    ))
+  ))
+)
+
+// instigate :: List Route -> List String
+instigate = (routes, locationPath) => pipe(
+  IO.trace('location'),
+  split('/'),
+  IO.trace('parts'),
+  ifElse(
+    pipe(len, lt(1)),
+    slice(1, Infinity),
+    always([])
+  ),
+  IO.trace('output'),
+  matchURL(routes)
+)(locationPath)
+
+#-
+{Browser}
+  window.instigate = instigate
+{/Browser}
+-#
