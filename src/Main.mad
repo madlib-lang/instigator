@@ -4,7 +4,7 @@ import type { Element } from 'MadUI'
 import { split } from 'String'
 import { filter, reduce, concat, nth, find, len, slice } from 'List'
 import { fst, snd } from 'Tuple'
-import { ifElse, always, notEquals, equals, any } from 'Function'
+import { ifElse, identity, always, notEquals, equals, any } from 'Function'
 import { lt } from 'Compare'
 
 // export type View a -> Element
@@ -14,10 +14,7 @@ export alias RouteElement = {
   el   :: Element 
 }
 
-export alias RouteView = {
-  path :: String
-  // view :: View
-}
+// export type RouteView = RouteString(String)
 
 getLocation = (_) => #- window.location.pathname -#
 
@@ -43,28 +40,39 @@ IO.trace(
   ifilter((x) => snd(x) > 1, ['a', 'b', 'c', 'd'])
 )
 
-// matchURL :: List(RouteView) -> String -> List(String)
-matchURL = (routes, given) => any(
+startsWith :: String -> String -> Boolean
+startsWith = (needle, haystack) => #- needle.startsWith(haystack) -#
+
+selectFrom = (routes, routeParts) => imap(
+  (x) => nth(snd(x), routes)
+)(routeParts)
+
+// matchesURL :: List RouteView -> List String -> List Boolean
+matchesURL = (routes, given) => any(
   pipe(
     .path,
-    IO.trace('path?'),
     split('/'),
+    slice(1, Infinity),
     ifElse(
       pipe(len, notEquals(len(given))),
       always(false),
-      (raw) => pipe(
-        imap(
-          (x) => `${fst(x)} -> ${snd(x)}`
-        ),
-        IO.trace('what'),
-        always(true)
+      (raw) => ifElse(
+        any(startsWith(':')),
+        always(true),
+        pipe(
+          selectFrom(routes),
+          any(where {
+            Just(_) => true
+            Nothing => false
+          })
+        )
       )(raw)
     )
   )
 )(routes)
 
-early = matchURL([
-  {path: 'alpha/beta'}, {path: 'gamma/delta'},{path: 'epsilon/omega'}, {path: 'a/b/c'}
+early = matchesURL([
+  {path: '/alpha/beta'}, {path: '/gamma/delta'},{path: '/epsilon/omega'}, {path: '/a/b/c'}
 ])
 
 IO.trace('match EARLY',
@@ -80,6 +88,7 @@ IO.trace('a/b/c', early(['a', 'b', 'c']))
 IO.trace('a', early(['a']))
 IO.trace('b', early(['b']))
 IO.trace('c', early(['c']))
+IO.trace('a/b/:shit', early(['a', 'b', ':shit']))
 
 // instigate :: List Route -> List String
 // instigate = (routes, locationPath) => pipe(
