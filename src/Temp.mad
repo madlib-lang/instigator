@@ -1,0 +1,3 @@
+returno = (x) => x > 7 ? 'seven' : 7
+
+returno(7)

@@ -1,10 +1,10 @@
 import IO from "IO"
 import { Just, Nothing } from 'Maybe'
 import type { Element } from 'MadUI'
+import {} from 'Number'
 import { split } from 'String'
 import { filter, reduce, concat, nth, find, len, slice } from 'List'
-import { fst, snd } from 'Tuple'
-import { ifElse, identity, always, notEquals, equals, any } from 'Function'
+import { memoize, ifElse, identity, always, notEquals, equals, any } from 'Function'
 import { lt } from 'Compare'
 
 // export type View a -> Element
@@ -14,46 +14,58 @@ export alias RouteElement = {
   el   :: Element 
 }
 
-// export type RouteView = RouteString(String)
+export alias RouteView = {
+  path :: String
+}
 
 getLocation = (_) => #- window.location.pathname -#
 
-addIndex = (fn, y, xs) => pipe(
-  reduce(
-    (list, x) => concat(list, [<x, len(list)>]),
-    []
-  ),
-  fn(y)
-)(xs)
+apply = (fn, xs) => #- fn.apply(null, xs) -#
+
+addIndex :: ((a -> b) -> c -> d) -> (a -> Number -> b) -> c -> d
+addIndex = (fn, y, xs) => {
+  i = 0
+  return fn(
+    (x) => {
+      result = y(x, i)
+      i = i + 1
+      return result 
+    },
+    xs
+  )
+}
 
 imap = addIndex(map)
-ichain = addIndex(chain)
+
 ifilter = addIndex(filter)
 
 IO.trace(
   'imap',
-  imap((x) => `${fst(x)}${snd(x)}`, ['a', 'b', 'c'])
+  imap((x, i) => `${x}${show(i)}`, ['a', 'b', 'c'])
 )
 
 IO.trace(
   'ifilter',
-  ifilter((x) => snd(x) > 1, ['a', 'b', 'c', 'd'])
+  ifilter(
+    (_, i) => i > 1,
+    ['a', 'b', 'c', 'd']
+  )
 )
 
 startsWith :: String -> String -> Boolean
-startsWith = (needle, haystack) => #- needle.startsWith(haystack) -#
+startsWith = (needle, haystack) => #- haystack.startsWith(needle) -#
 
 selectFrom = (routes, routeParts) => imap(
-  (x) => nth(snd(x), routes)
+  (_, i) => nth(i, routes)
 )(routeParts)
 
-// matchesURL :: List RouteView -> List String -> List Boolean
+matchesURL :: List RouteView -> List a -> Boolean
 matchesURL = (routes, given) => any(
   pipe(
     .path,
     split('/'),
     slice(1, Infinity),
-    ifElse(
+    memoize(ifElse(
       pipe(len, notEquals(len(given))),
       always(false),
       (raw) => ifElse(
@@ -67,21 +79,34 @@ matchesURL = (routes, given) => any(
           })
         )
       )(raw)
-    )
+    ))
   )
 )(routes)
 
-early = matchesURL([
-  {path: '/alpha/beta'}, {path: '/gamma/delta'},{path: '/epsilon/omega'}, {path: '/a/b/c'}
-])
+SAMPLE_ROUTES = [
+  {path: '/alpha/beta'},
+  {path: '/gamma/delta'},
+  {path: '/epsilon/omega'},
+  {path: '/a/b/c'}
+]
+
+early = matchesURL(
+  SAMPLE_ROUTES
+)
 
 IO.trace('match EARLY',
-  early(['delta'])
+  early(['gamma', 'delta'])
 )
 IO.trace('match gamma',
-  early(['gamma'])
+  early(['gamma', ':jamma'])
 )
 IO.trace('match omega',
+  early(['omega'])
+)
+IO.trace('match omega 2',
+  early(['omega'])
+)
+IO.trace('match omega red',
   early(['omega'])
 )
 IO.trace('a/b/c', early(['a', 'b', 'c']))
@@ -91,22 +116,37 @@ IO.trace('c', early(['c']))
 IO.trace('a/b/:shit', early(['a', 'b', ':shit']))
 
 // instigate :: List Route -> List String
-// instigate = (routes, locationPath) => pipe(
-//   IO.trace('location'),
-//   split('/'),
-//   IO.trace('parts'),
-//   ifElse(
-//     pipe(len, lt(1)),
-//     slice(1, Infinity),
-//     always([])
-//   ),
-//   IO.trace('output'),
-//   matchURL(routes)
-// )(locationPath)
+instigate = (routes, locationPath) => pipe(
+  IO.trace('location'),
+  split('/'),
+  filter(notEquals('')),
+  IO.trace('parts'),
+  ifElse(
+    pipe(len, lt(1)),
+    slice(1, Infinity),
+    always([])
+  ),
+  IO.trace('output'),
+  matchesURL(routes)
+)(locationPath)
+
+matchy = instigate(
+  SAMPLE_ROUTES
+)
+
+IO.trace('instigate', matchy('/a/b/:c'))
+IO.trace('instigate 2', matchy('localhost:5050/a/b/:c'))
+IO.trace('instigate 3', matchy('/nope'))
+#-
+  if (typeof window !== 'undefined') {
+    console.log('here', getLocation())
+    console.log('instigate 3', matchy(getLocation()))
+  }
+-#
 
 #-
 {Browser}
-  // window.instigate = instigate
-  window.matchURL = matchURL
+  window.instigate = instigate
+  window.matchesURL = matchesURL
 {/Browser}
 -#
