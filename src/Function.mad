@@ -1,0 +1,32 @@
+/* !TODO - move this to prelude/Function */
+addIndex :: ((a -> b) -> c -> d) -> (a -> Number -> b) -> c -> d
+export addIndex = (fn, y, xs) => {
+  i = 0
+  return fn(
+    (x) => {
+      result = y(x, i)
+      i = i + 1
+      return result 
+    },
+    xs
+  )
+}
+
+/*
+imap = addIndex(map)
+ifilter = addIndex(filter)
+
+// !TODO - move this to prelude/Function tests
+IO.trace(
+  'imap',
+  imap((x, i) => `${x}${show(i)}`, ['a', 'b', 'c'])
+)
+
+IO.trace(
+  'ifilter',
+  ifilter(
+    (_, i) => i > 1,
+    ['a', 'b', 'c', 'd']
+  )
+)
+*/

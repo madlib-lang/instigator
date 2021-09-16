@@ -7,36 +7,22 @@ import { filter, reduce, concat, nth, find, len, slice } from 'List'
 import { memoize, ifElse, identity, always, notEquals, any } from 'Function'
 import { lt } from 'Compare'
 
+import { startsWith } from './String'
+import { addIndex } from './Function'
+
 // Pitch!
 // notEquals should become `isNot`
 // equals should get an alias `is`
 
 // !TODO: change when nullary functions land
-getLocation = (_) => #- window.location.pathname -#
+// getLocation = (_) => #- window.location.pathname -#
 
 // applyRelativeTo :: a -> (b -> c) -> List b -> c
 // applyRelativeTo = (that, fn, xs) => #- fn.apply(that, xs) -#
 // apply = applyRelativeTo(null)
 
-/* !TODO - move this to prelude/Function */
-addIndex :: ((a -> b) -> c -> d) -> (a -> Number -> b) -> c -> d
-addIndex = (fn, y, xs) => {
-  i = 0
-  return fn(
-    (x) => {
-      result = y(x, i)
-      i = i + 1
-      return result 
-    },
-    xs
-  )
-}
-
-/* !TODO - move this to prelude/Function tests */
-imap = addIndex(map)
-ifilter = addIndex(filter)
-
 /*
+// !TODO - move this to prelude/Function tests
 IO.trace(
   'imap',
   imap((x, i) => `${x}${show(i)}`, ['a', 'b', 'c'])
@@ -51,19 +37,12 @@ IO.trace(
 )
 */
 
-/* !TODO - move this to prelude/String */
-startsWith :: String -> String -> Boolean
-startsWith = (needle, haystack) => #- haystack.startsWith(needle) -#
-
-endsWith :: String -> String -> Boolean
-endsWith = (needle, haystack) => #- haystack.endsWith(needle) -#
-
 export alias RouteView = {
   path :: String
 }
 
 // selectFrom :: List RouteView -> List String -> List Maybe a
-selectFrom = (routes, routeParts) => imap(
+selectFrom = (routes, routeParts) => addIndex(map)(
   (_, i) => nth(i, routes)
 )(routeParts)
 
