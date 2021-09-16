@@ -73,7 +73,7 @@ truthy = where {
 }
 
 matchesURI :: List RouteView -> List a -> Boolean
-matchesURI = (routes, given) => any(
+export matchesURI = (routes, given) => any(
   pipe(
     .path,
     split('/'),
@@ -96,52 +96,8 @@ matchesURI = (routes, given) => any(
   )
 )(routes)
 
-SAMPLE_ROUTES = [
-  {path: '/alpha/beta'},
-  {path: '/gamma/delta'},
-  {path: '/epsilon/omega'},
-  {path: '/a/b/:c'}
-]
-
-testMatch = matchesURI(
-  SAMPLE_ROUTES
-)
-
-makeTaggedTrace = (x, tag) => IO.trace(x ++ tag)
-printMatch = makeTaggedTrace('--> ')
-
-printMatch('testMatch',
-  testMatch(['gamma', 'delta'])
-)
-printMatch('gamma',
-  testMatch(['gamma', ':jamma'])
-)
-printMatch('omega',
-  testMatch(['omega'])
-)
-printMatch('omega 2',
-  testMatch(['epsilon', 'omega'])
-)
-printMatch('omega red',
-  testMatch(['omega'])
-)
-printMatch('a/b/c',
-  testMatch(['a', 'b', 'c'])
-)
-printMatch('a',
-  testMatch(['a'])
-)
-printMatch('b',
-  testMatch(['b'])
-)
-printMatch('c',
-  testMatch(['c'])
-)
-printMatch('a/b/:shit',
-  testMatch(['a', 'b', ':shit'])
-)
 // instigate :: List Route -> List String
-instigate = (routes, locationPath) => pipe(
+export instigate = (routes, locationPath) => pipe(
   // IO.trace('instigate - locationPath'),
   split('/'),
   filter(notEquals('')),
@@ -155,13 +111,6 @@ instigate = (routes, locationPath) => pipe(
   matchesURI(routes)
 )(locationPath)
 
-matchy = instigate(
-  SAMPLE_ROUTES
-)
-
-IO.trace('instigate', matchy('/a/b/:c'))
-IO.trace('instigate 2', matchy('localhost:5050/a/b/:c'))
-IO.trace('instigate 3', matchy('/nope'))
 #-
   if (typeof window !== 'undefined') {
     console.log('here', getLocation())

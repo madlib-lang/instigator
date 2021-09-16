@@ -1,0 +1,92 @@
+import { assertEquals, test } from "TestTools"
+import { EQUAL, LESS, MORE } from "Compare"
+
+import {matchesURI, instigate} from './Main'
+
+SAMPLE_ROUTES = [
+  {path: '/alpha/beta'},
+  {path: '/gamma/delta'},
+  {path: '/epsilon/omega'},
+  {path: '/a/b/:c'}
+]
+
+testMatch = matchesURI(
+  SAMPLE_ROUTES
+)
+
+taggedTest = (tag, desc) => test(tag ++ desc)
+
+test_matchesURI = taggedTest('matchesURI - ')
+
+test_matchesURI('gamma delta', (_) => pipe(
+  testMatch,
+  assertEquals($, true)
+)(['gamma', 'delta']))
+ 
+test_matchesURI('gamma :jamma', (_) => pipe(
+  testMatch,
+  assertEquals($, true)
+)(['gamma', ':jamma']))
+ 
+test_matchesURI('omega', (_) => pipe(
+  testMatch,
+  assertEquals($, false)
+)(['omega']))
+ 
+test_matchesURI('epsilon omega', (_) => pipe(
+  testMatch,
+  assertEquals($, true)
+)(['epsilon', 'omega']))
+ 
+test_matchesURI('a b c', (_) => pipe(
+  testMatch,
+  assertEquals($, true)
+)(['a', 'b', 'c']))
+ 
+test_matchesURI('a', (_) => pipe(
+  testMatch,
+  assertEquals($, false)
+)(['a']))
+ 
+test_matchesURI('b', (_) => pipe(
+  testMatch,
+  assertEquals($, false)
+)(['b']))
+ 
+test_matchesURI('c', (_) => pipe(
+  testMatch,
+  assertEquals($, false)
+)(['c']))
+ 
+test_matchesURI('a/b/:shit', (_) => pipe(
+  testMatch,
+  assertEquals($, true)
+)(['a', 'b', ':shit']))
+
+instigateFromSamples = instigate(
+  SAMPLE_ROUTES
+)
+
+test_instigate = taggedTest('instigate - ')
+
+test_instigate(
+  '/a/b/:c',
+  (_) => pipe(
+    instigateFromSamples,
+    assertEquals($, true)
+  )('/a/b/:c')
+)
+test_instigate(
+  'localhost:5050/a/b/:c',
+  (_) => pipe(
+    instigateFromSamples,
+    assertEquals($, true)
+  )('localhost:5050/a/b/:c')
+)
+test_instigate(
+  '/nope',
+  (_) => pipe(
+    instigateFromSamples,
+    assertEquals($, false)
+  )('/nope')
+)
