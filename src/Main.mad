@@ -15,27 +15,11 @@ import { addIndex } from './Function'
 // equals should get an alias `is`
 
 // !TODO: change when nullary functions land
-// getLocation = (_) => #- window.location.pathname -#
+getLocation = (_) => #- window.location.pathname -#
 
 // applyRelativeTo :: a -> (b -> c) -> List b -> c
 // applyRelativeTo = (that, fn, xs) => #- fn.apply(that, xs) -#
 // apply = applyRelativeTo(null)
-
-/*
-// !TODO - move this to prelude/Function tests
-IO.trace(
-  'imap',
-  imap((x, i) => `${x}${show(i)}`, ['a', 'b', 'c'])
-)
-
-IO.trace(
-  'ifilter',
-  ifilter(
-    (_, i) => i > 1,
-    ['a', 'b', 'c', 'd']
-  )
-)
-*/
 
 export alias RouteView = {
   path :: String
@@ -46,11 +30,8 @@ selectFrom = (routes, routeParts) => addIndex(map)(
   (_, i) => nth(i, routes)
 )(routeParts)
 
-truthy = where {
-  Just(_) => true
-  Nothing => false
-}
 
+/*
 matchesURI :: List RouteView -> List a -> Boolean
 export matchesURI = (routes, given) => any(
   pipe(
@@ -58,49 +39,100 @@ export matchesURI = (routes, given) => any(
     split('/'),
     slice(1, Infinity),
     memoize(ifElse(
-
       pipe(len, notEquals(len(given))),
-    
       always(false),
-    
       (raw) => ifElse(
         any(startsWith(':')),
         always(true),
         pipe(
           selectFrom(routes),
-          any(truthy)
+          any(maybeTruthy)
         )
       )(raw)
     ))
   )
 )(routes)
+*/
 
-// instigate :: List Route -> List String
-export instigate = (routes, locationPath) => pipe(
-  // IO.trace('instigate - locationPath'),
-  split('/'),
-  filter(notEquals('')),
-  // IO.trace('instigate - locationSegments'),
-  ifElse(
-    pipe(len, lt(1)),
+type Match = ExplicitMatch | WildcardMatch | NoMatch
+
+taggedLog = (tag, x, y) => IO.trace(tag ++ x, y)
+trace_testURI = taggedLog('testURI')
+
+lookForMatches = (routes, given) => ifElse(
+  any(startsWith(':')),
+  always([WildcardMatch]),
+  pipe(
+    selectFrom(routes),
+    map(where {
+      Just(_) => ExplicitMatch
+      Nothing => NoMatch
+    })
+  )
+)(given)
+
+// testURI :: List RouteView -> List a -> List Match
+testURI = (routes, given) => map(
+  pipe(
+    trace_testURI('input'),
+    .path,
+    split('/'),
     slice(1, Infinity),
-    always([])
-  ),
-  // IO.trace('instigate - cleanedSegments'),
-  matchesURI(routes)
-)(locationPath)
+    trace_testURI('sliced'),
+    ifElse(
+      pipe(len, notEquals(len(given))),
+      always([NoMatch]),
+      lookForMatches(routes)
+    )
+  )
+)(routes)
 
-#-
-  if (typeof window !== 'undefined') {
-    console.log('here', getLocation())
-    console.log('instigate 3', matchy(getLocation()))
-  }
--#
+matchesURI :: List RouteView -> List a -> Boolean
+matchesURI = (routes, given) => pipe(
+  testURI(routes),
+  any(any(where {
+    ExplicitMatch => true
+    WildcardMatch => true
+    NoMatch => false
+  }))
+)(given)
+
+// instigate :: List RouteView -> String -> Boolean
+// export instigate = (routes, locationPath) => pipe(
+//   // IO.trace('instigate - locationPath'),
+//   split('/'),
+//   filter(notEquals('')),
+//   // IO.trace('instigate - locationSegments'),
+//   ifElse(
+//     pipe(len, lt(1)),
+//     slice(1, Infinity),
+//     always([])
+//   ),
+//   // IO.trace('instigate - cleanedSegments'),
+//   matchesURI(routes)
+// )(locationPath)
+
+SAMPLE = [
+  { path: '/alpha/beta' },
+  { path: '/gamma/delta/:epsilon' },
+  { path: '/name/:name/detail/:detail' }
+]
+// testInstigate = instigate(SAMPLE)
+// #-
+//   if (typeof window !== 'undefined') {
+//     console.log('here', getLocation())
+//     console.log('instigate', testInstigate(getLocation()))
+//     console.log('instigate cool', testInstigate('/gamma/delta/cool'))
+//     console.log('instigate fence', instigate(SAMPLE)('/name/brekk/detail/testing'))
+//   }
+// -#
 
 #-
 {Browser}
-  window.instigate = instigate
+  // window.instigate = instigate
+  window.testURI = testURI
   window.matchesURI = matchesURI
+  window.lookForMatches = lookForMatches
 {/Browser}
 -#
 
