@@ -10,83 +10,37 @@ SAMPLE_ROUTES = [
   {path: '/a/b/:c'}
 ]
 
-testMatch = matchesURI(
+
+taggedTest = (tag, fn, desc, input, expected) => test(
+  tag ++ ' - ' ++ desc,
+  (_) => pipe(
+    fn,
+    assertEquals($, expected)
+  )(input)
+)
+
+matchesSample = matchesURI(
   SAMPLE_ROUTES
 )
 
-taggedTest = (tag, desc) => test(tag ++ desc)
+test_matchesURI = taggedTest('matchesURI', matchesSample)
 
-test_matchesURI = taggedTest('matchesURI - ')
-
-test_matchesURI('gamma delta', (_) => pipe(
-  testMatch,
-  assertEquals($, true)
-)(['gamma', 'delta']))
- 
-test_matchesURI('gamma :jamma', (_) => pipe(
-  testMatch,
-  assertEquals($, true)
-)(['gamma', ':jamma']))
- 
-test_matchesURI('omega', (_) => pipe(
-  testMatch,
-  assertEquals($, false)
-)(['omega']))
- 
-test_matchesURI('epsilon omega', (_) => pipe(
-  testMatch,
-  assertEquals($, true)
-)(['epsilon', 'omega']))
- 
-test_matchesURI('a b c', (_) => pipe(
-  testMatch,
-  assertEquals($, true)
-)(['a', 'b', 'c']))
- 
-test_matchesURI('a', (_) => pipe(
-  testMatch,
-  assertEquals($, false)
-)(['a']))
- 
-test_matchesURI('b', (_) => pipe(
-  testMatch,
-  assertEquals($, false)
-)(['b']))
- 
-test_matchesURI('c', (_) => pipe(
-  testMatch,
-  assertEquals($, false)
-)(['c']))
- 
-test_matchesURI('a/b/:shit', (_) => pipe(
-  testMatch,
-  assertEquals($, true)
-)(['a', 'b', ':shit']))
+test_matchesURI('gamma delta', ['gamma', 'delta'], true)
+test_matchesURI('gamma :jamma', ['gamma', ':jamma'], true)
+test_matchesURI('epsilon omega', ['epsilon', 'omega'], true)
+test_matchesURI('a b c', ['a', 'b', 'c'], true)
+test_matchesURI('a/b/:shit', ['a', 'b', ':shit'], true)
+test_matchesURI('omega', ['omega'], false)
+test_matchesURI('a', ['a'], false)
+test_matchesURI('b', ['b'], false)
+test_matchesURI('c', ['c'], false)
 
 instigateFromSamples = instigate(
   SAMPLE_ROUTES
 )
+test_instigate = taggedTest('instigate', instigateFromSamples)
 
-test_instigate = taggedTest('instigate - ')
+test_instigate('/a/b/:c', '/a/b/:c', true)
+test_instigate('localhost:5050/a/b/:c', '/a/b/:c', true)
+test_instigate('/nope', '/nope', false)
 
-test_instigate(
-  '/a/b/:c',
-  (_) => pipe(
-    instigateFromSamples,
-    assertEquals($, true)
-  )('/a/b/:c')
-)
-test_instigate(
-  'localhost:5050/a/b/:c',
-  (_) => pipe(
-    instigateFromSamples,
-    assertEquals($, true)
-  )('localhost:5050/a/b/:c')
-)
-test_instigate(
-  '/nope',
-  (_) => pipe(
-    instigateFromSamples,
-    assertEquals($, false)
-  )('/nope')
-)
