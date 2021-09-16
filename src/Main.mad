@@ -4,24 +4,21 @@ import type { Element } from 'MadUI'
 import {} from 'Number'
 import { split } from 'String'
 import { filter, reduce, concat, nth, find, len, slice } from 'List'
-import { memoize, ifElse, identity, always, notEquals, equals, any } from 'Function'
+import { memoize, ifElse, identity, always, notEquals, any } from 'Function'
 import { lt } from 'Compare'
 
-// export type View a -> Element
+// Pitch!
+// notEquals should become `isNot`
+// equals should get an alias `is`
 
-export alias RouteElement = {
-  path :: String,
-  el   :: Element 
-}
-
-export alias RouteView = {
-  path :: String
-}
-
+// !TODO: change when nullary functions land
 getLocation = (_) => #- window.location.pathname -#
 
-apply = (fn, xs) => #- fn.apply(null, xs) -#
+// applyRelativeTo :: a -> (b -> c) -> List b -> c
+// applyRelativeTo = (that, fn, xs) => #- fn.apply(that, xs) -#
+// apply = applyRelativeTo(null)
 
+/* !TODO - move this to prelude/Function */
 addIndex :: ((a -> b) -> c -> d) -> (a -> Number -> b) -> c -> d
 addIndex = (fn, y, xs) => {
   i = 0
@@ -35,10 +32,11 @@ addIndex = (fn, y, xs) => {
   )
 }
 
+/* !TODO - move this to prelude/Function tests */
 imap = addIndex(map)
-
 ifilter = addIndex(filter)
 
+/*
 IO.trace(
   'imap',
   imap((x, i) => `${x}${show(i)}`, ['a', 'b', 'c'])
@@ -51,32 +49,47 @@ IO.trace(
     ['a', 'b', 'c', 'd']
   )
 )
+*/
 
+/* !TODO - move this to prelude/String */
 startsWith :: String -> String -> Boolean
 startsWith = (needle, haystack) => #- haystack.startsWith(needle) -#
 
+endsWith :: String -> String -> Boolean
+endsWith = (needle, haystack) => #- haystack.endsWith(needle) -#
+
+export alias RouteView = {
+  path :: String
+}
+
+// selectFrom :: List RouteView -> List String -> List Maybe a
 selectFrom = (routes, routeParts) => imap(
   (_, i) => nth(i, routes)
 )(routeParts)
 
-matchesURL :: List RouteView -> List a -> Boolean
-matchesURL = (routes, given) => any(
+truthy = where {
+  Just(_) => true
+  Nothing => false
+}
+
+matchesURI :: List RouteView -> List a -> Boolean
+matchesURI = (routes, given) => any(
   pipe(
     .path,
     split('/'),
     slice(1, Infinity),
     memoize(ifElse(
+
       pipe(len, notEquals(len(given))),
+    
       always(false),
+    
       (raw) => ifElse(
         any(startsWith(':')),
         always(true),
         pipe(
           selectFrom(routes),
-          any(where {
-            Just(_) => true
-            Nothing => false
-          })
+          any(truthy)
         )
       )(raw)
     ))
@@ -87,47 +100,59 @@ SAMPLE_ROUTES = [
   {path: '/alpha/beta'},
   {path: '/gamma/delta'},
   {path: '/epsilon/omega'},
-  {path: '/a/b/c'}
+  {path: '/a/b/:c'}
 ]
 
-early = matchesURL(
+testMatch = matchesURI(
   SAMPLE_ROUTES
 )
 
-IO.trace('match EARLY',
-  early(['gamma', 'delta'])
-)
-IO.trace('match gamma',
-  early(['gamma', ':jamma'])
-)
-IO.trace('match omega',
-  early(['omega'])
-)
-IO.trace('match omega 2',
-  early(['omega'])
-)
-IO.trace('match omega red',
-  early(['omega'])
-)
-IO.trace('a/b/c', early(['a', 'b', 'c']))
-IO.trace('a', early(['a']))
-IO.trace('b', early(['b']))
-IO.trace('c', early(['c']))
-IO.trace('a/b/:shit', early(['a', 'b', ':shit']))
+makeTaggedTrace = (x, tag) => IO.trace(x ++ tag)
+printMatch = makeTaggedTrace('--> ')
 
+printMatch('testMatch',
+  testMatch(['gamma', 'delta'])
+)
+printMatch('gamma',
+  testMatch(['gamma', ':jamma'])
+)
+printMatch('omega',
+  testMatch(['omega'])
+)
+printMatch('omega 2',
+  testMatch(['epsilon', 'omega'])
+)
+printMatch('omega red',
+  testMatch(['omega'])
+)
+printMatch('a/b/c',
+  testMatch(['a', 'b', 'c'])
+)
+printMatch('a',
+  testMatch(['a'])
+)
+printMatch('b',
+  testMatch(['b'])
+)
+printMatch('c',
+  testMatch(['c'])
+)
+printMatch('a/b/:shit',
+  testMatch(['a', 'b', ':shit'])
+)
 // instigate :: List Route -> List String
 instigate = (routes, locationPath) => pipe(
-  IO.trace('location'),
+  // IO.trace('instigate - locationPath'),
   split('/'),
   filter(notEquals('')),
-  IO.trace('parts'),
+  // IO.trace('instigate - locationSegments'),
   ifElse(
     pipe(len, lt(1)),
     slice(1, Infinity),
     always([])
   ),
-  IO.trace('output'),
-  matchesURL(routes)
+  // IO.trace('instigate - cleanedSegments'),
+  matchesURI(routes)
 )(locationPath)
 
 matchy = instigate(
@@ -147,6 +172,7 @@ IO.trace('instigate 3', matchy('/nope'))
 #-
 {Browser}
   window.instigate = instigate
-  window.matchesURL = matchesURL
+  window.matchesURI = matchesURI
 {/Browser}
 -#
+
