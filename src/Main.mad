@@ -57,6 +57,7 @@ shout2 = (tag, fn, a, b) => shout(tag, fn(a), b)
 
 type Match = ExplicitMatch | WildcardMatch | NoMatch
 
+lookForMatches :: List RouteView -> List String -> List Match
 export lookForMatches = (routes, given) => pipe(
   ifElse(
     any(startsWith(':')),
@@ -72,7 +73,7 @@ export lookForMatches = (routes, given) => pipe(
 )(given)
 // export lookForMatchesWithLogs = shout2(lookForMatches)
 
-// testURI :: List RouteView -> List a -> List Match
+testURI :: List RouteView -> List a -> List (List Match)
 export testURI = (routes, given) => map(
   pipe(
     .path,
