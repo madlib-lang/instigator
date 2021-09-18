@@ -1,5 +1,6 @@
 import IO from "IO"
 import { Just, Nothing } from 'Maybe'
+import type { Maybe } from 'Maybe'
 import type { Element } from 'MadUI'
 import {} from 'Number'
 import { split } from 'String'
@@ -32,11 +33,9 @@ selectFrom = (routes, routeParts) => addIndex(map)(
 
 conditionalTaggedLog :: Boolean -> String -> String -> a -> a
 conditionalTaggedLog = (condition, tag, x, y) => (
-  if (condition) {
+  condition ?
     IO.trace(tag ++ x, y)
-  } else {
-    y
-  }
+    : y
 )
 
 CONFIG_SHOW_LOGS = true
@@ -53,27 +52,27 @@ shout = (tag, fn, a) => pipe(
   )(a)
 )(tag)
 
-shout2 = (tag, fn, a, b) => shout(tag, fn(a), b) 
+shout2 = (tag, fn, a, b) => shout(tag, (_) => fn(a, b)) 
+shout3 = (tag, fn, a, b, c) => shout(tag, (_) => fn(a, b, c)) 
 
 type Match = ExplicitMatch | WildcardMatch | NoMatch
 
 lookForMatches :: List RouteView -> List String -> List Match
-export lookForMatches = (routes, given) => pipe(
-  ifElse(
-    any(startsWith(':')),
-    always([WildcardMatch]),
-    pipe(
-      selectFrom(routes),
-      map(where {
-        Just(_) => ExplicitMatch
-        Nothing => NoMatch
-      })
-    )
+export lookForMatches = (routes, given) => ifElse(
+  any(startsWith(':')),
+  always([WildcardMatch]),
+  pipe(
+    selectFrom(routes),
+    map(where {
+      Just(_) => ExplicitMatch
+      Nothing => NoMatch
+    })
   )
 )(given)
-// export lookForMatchesWithLogs = shout2(lookForMatches)
 
-testURI :: List RouteView -> List a -> List (List Match)
+export lookForMatchesWithLogs = shout2('lookForMatches', lookForMatches)
+
+testURI :: List RouteView -> List String -> List (List Match)
 export testURI = (routes, given) => map(
   pipe(
     .path,
@@ -86,30 +85,44 @@ export testURI = (routes, given) => map(
     )
   )
 )(routes)
-// export testURIWithLogs = shout2(testURI) 
+export testURIWithLogs = shout2('testURI', testURI) 
 
-matchesURI :: List RouteView -> List a -> Boolean
-export matchesURI = (routes, given) => pipe(
-  testURI(routes),
-  any(any(where {
+matchToBoolean :: Match -> Boolean
+matchToBoolean = (x) => pipe(
+  where {
     ExplicitMatch => true
     WildcardMatch => true
     NoMatch => false
-  }))
-)(given)
-// export matchesURIWithLogs = shout2(matchesURI)
+  }
+)(x)
 
-instigate :: List RouteView -> String -> Boolean
-export instigate = (routes, locationPath) => pipe(
+matchesURI :: List RouteView -> List String -> Boolean
+export matchesURI = (routes, given) => pipe(
+  testURI(routes),
+  any(any(matchToBoolean))
+)(given)
+// export matchesURIWithLogs = shout2('matchesURI', (routes, given) => pipe(
+//   testURIWithLogs(routes),
+//   any(any(matchToBoolean))
+// )(given))
+
+instigateHead :: String -> List String
+instigateHead = pipe(
   split('/'),
   filter(notEquals('')),
   ifElse(
     pipe(len, lt(1)),
     slice(1, Infinity),
     always([])
-  ),
+  )
+)
+
+instigate :: List RouteView -> String -> Boolean
+export instigate = (routes, locationPath) => pipe(
+  instigateHead,
   matchesURI(routes)
 )(locationPath)
+export instigateWithLogs = shout2('instigate', instigate)
 
 SAMPLE = [
   { path: '/alpha/beta' },
@@ -128,7 +141,7 @@ testInstigate = instigate(SAMPLE)
 
 #-
 {Browser}
-  // window.instigate = instigate
+  window.instigate = instigateWithLogs
   // window.traceOnce = traceOnce
   window.testURI = testURI
   window.matchesURI = matchesURI
