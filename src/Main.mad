@@ -30,55 +30,54 @@ selectFrom = (routes, routeParts) => addIndex(map)(
   (_, i) => nth(i, routes)
 )(routeParts)
 
+conditionalTaggedLog :: Boolean -> String -> String -> a -> a
+conditionalTaggedLog = (condition, tag, x, y) => (
+  if (condition) {
+    IO.trace(tag ++ x, y)
+  } else {
+    y
+  }
+)
 
-/*
-matchesURI :: List RouteView -> List a -> Boolean
-export matchesURI = (routes, given) => any(
-  pipe(
-    .path,
-    split('/'),
-    slice(1, Infinity),
-    memoize(ifElse(
-      pipe(len, notEquals(len(given))),
-      always(false),
-      (raw) => ifElse(
-        any(startsWith(':')),
-        always(true),
-        pipe(
-          selectFrom(routes),
-          any(maybeTruthy)
-        )
-      )(raw)
-    ))
-  )
-)(routes)
-*/
+CONFIG_SHOW_LOGS = true
+
+taggedLog = conditionalTaggedLog(CONFIG_SHOW_LOGS)
+
+shout :: String -> (a -> b) -> a -> b
+shout = (tag, fn, a) => pipe(
+  taggedLog,
+  (tagger) => pipe(
+    tagger('input'),
+    fn,
+    tagger('output')
+  )(a)
+)(tag)
+
+shout2 = (tag, fn, a, b) => shout(tag, fn(a), b) 
 
 type Match = ExplicitMatch | WildcardMatch | NoMatch
 
-taggedLog = (tag, x, y) => IO.trace(tag ++ x, y)
-trace_testURI = taggedLog('testURI')
-
-lookForMatches = (routes, given) => ifElse(
-  any(startsWith(':')),
-  always([WildcardMatch]),
-  pipe(
-    selectFrom(routes),
-    map(where {
-      Just(_) => ExplicitMatch
-      Nothing => NoMatch
-    })
+export lookForMatches = (routes, given) => pipe(
+  ifElse(
+    any(startsWith(':')),
+    always([WildcardMatch]),
+    pipe(
+      selectFrom(routes),
+      map(where {
+        Just(_) => ExplicitMatch
+        Nothing => NoMatch
+      })
+    )
   )
 )(given)
+// export lookForMatchesWithLogs = shout2(lookForMatches)
 
 // testURI :: List RouteView -> List a -> List Match
-testURI = (routes, given) => map(
+export testURI = (routes, given) => map(
   pipe(
-    trace_testURI('input'),
     .path,
     split('/'),
     slice(1, Infinity),
-    trace_testURI('sliced'),
     ifElse(
       pipe(len, notEquals(len(given))),
       always([NoMatch]),
@@ -86,9 +85,10 @@ testURI = (routes, given) => map(
     )
   )
 )(routes)
+// export testURIWithLogs = shout2(testURI) 
 
 matchesURI :: List RouteView -> List a -> Boolean
-matchesURI = (routes, given) => pipe(
+export matchesURI = (routes, given) => pipe(
   testURI(routes),
   any(any(where {
     ExplicitMatch => true
@@ -96,40 +96,39 @@ matchesURI = (routes, given) => pipe(
     NoMatch => false
   }))
 )(given)
+// export matchesURIWithLogs = shout2(matchesURI)
 
-// instigate :: List RouteView -> String -> Boolean
-// export instigate = (routes, locationPath) => pipe(
-//   // IO.trace('instigate - locationPath'),
-//   split('/'),
-//   filter(notEquals('')),
-//   // IO.trace('instigate - locationSegments'),
-//   ifElse(
-//     pipe(len, lt(1)),
-//     slice(1, Infinity),
-//     always([])
-//   ),
-//   // IO.trace('instigate - cleanedSegments'),
-//   matchesURI(routes)
-// )(locationPath)
+instigate :: List RouteView -> String -> Boolean
+export instigate = (routes, locationPath) => pipe(
+  split('/'),
+  filter(notEquals('')),
+  ifElse(
+    pipe(len, lt(1)),
+    slice(1, Infinity),
+    always([])
+  ),
+  matchesURI(routes)
+)(locationPath)
 
 SAMPLE = [
   { path: '/alpha/beta' },
   { path: '/gamma/delta/:epsilon' },
   { path: '/name/:name/detail/:detail' }
 ]
-// testInstigate = instigate(SAMPLE)
-// #-
-//   if (typeof window !== 'undefined') {
-//     console.log('here', getLocation())
-//     console.log('instigate', testInstigate(getLocation()))
-//     console.log('instigate cool', testInstigate('/gamma/delta/cool'))
-//     console.log('instigate fence', instigate(SAMPLE)('/name/brekk/detail/testing'))
-//   }
-// -#
+testInstigate = instigate(SAMPLE)
+#-
+  if (typeof window !== 'undefined') {
+    console.log('here', getLocation())
+    console.log('instigate', testInstigate(getLocation()))
+    console.log('instigate cool', testInstigate('/gamma/delta/cool'))
+    console.log('instigate fence', instigate(SAMPLE)('/name/brekk/detail/testing'))
+  }
+-#
 
 #-
 {Browser}
   // window.instigate = instigate
+  // window.traceOnce = traceOnce
   window.testURI = testURI
   window.matchesURI = matchesURI
   window.lookForMatches = lookForMatches

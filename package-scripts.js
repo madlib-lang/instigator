@@ -12,14 +12,22 @@ const out = {
 module.exports = {
   scripts: {
     build: {
-      mad: `madlib compile -i ${input.mad.Main} --target browser --bundle -o ${out.mad.Main}`,
+      dev: `madlib compile -i ${input.mad.Main} --target browser --bundle -o ${out.mad.Main}`,
       html: `copy-and-watch src/*.html build/`,
-      script: `nps build.mad build.html`,
+      script: `nps build.dev build.html`,
+      sync: {
+        description: "sync the content with the client",
+        script: `browser-sync start -c browsersync.config.js`,
+      },
     },
-    run: {
+
+    dev: {
       description: "run in browser",
-      script: `browser-sync start -c browsersync.config.js`,
+      script: `concurrently ${[
+        `"watch 'nps build.dev' src"`,
+        `"nps build.sync"`,
+      ].join(" ")}`,
     },
-    care: `nps build run`,
+    care: `nps build`,
   },
 }

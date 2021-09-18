@@ -1,6 +1,11 @@
 import { assertEquals, test } from "TestTools"
 import { EQUAL, LESS, MORE } from "Compare"
 
+import IO from 'IO'
+import {} from 'Number'
+import {} from 'String'
+import {} from 'Boolean'
+
 import {matchesURI, instigate} from './Main'
 
 SAMPLE_ROUTES = [
@@ -11,13 +16,16 @@ SAMPLE_ROUTES = [
 ]
 
 
-taggedTest = (tag, fn, desc, input, expected) => test(
-  tag ++ ' - ' ++ desc,
-  (_) => pipe(
-    fn,
-    assertEquals($, expected)
-  )(input)
-)
+taggedTest = (tag, fn, expected, desc, input) => {
+  IO.trace(tag ++ ':usecase', show(expected))
+  return test(
+    tag ++ ' - ' ++ desc,
+    (_) => pipe(
+      fn,
+      assertEquals($, expected)
+    )(input)
+  )
+}
 
 matchesSample = matchesURI(
   SAMPLE_ROUTES
@@ -25,22 +33,32 @@ matchesSample = matchesURI(
 
 test_matchesURI = taggedTest('matchesURI', matchesSample)
 
-test_matchesURI('gamma delta', ['gamma', 'delta'], true)
-test_matchesURI('gamma :jamma', ['gamma', ':jamma'], true)
-test_matchesURI('epsilon omega', ['epsilon', 'omega'], true)
-test_matchesURI('a b c', ['a', 'b', 'c'], true)
-test_matchesURI('a/b/:shit', ['a', 'b', ':shit'], true)
-test_matchesURI('omega', ['omega'], false)
-test_matchesURI('a', ['a'], false)
-test_matchesURI('b', ['b'], false)
-test_matchesURI('c', ['c'], false)
+test_matchesURI__true = test_matchesURI(true)
+
+test_matchesURI__true('gamma delta', ['gamma', 'delta'])
+test_matchesURI__true('gamma :jamma', ['gamma', ':jamma'])
+test_matchesURI__true('epsilon omega', ['epsilon', 'omega'])
+test_matchesURI__true('a b c', ['a', 'b', 'c'])
+test_matchesURI__true('a/b/:shit', ['a', 'b', ':shit'])
+
+test_matchesURI__false = test_matchesURI(false)
+
+test_matchesURI__false('omega', ['omega'])
+test_matchesURI__false('a', ['a'])
+test_matchesURI__false('b', ['b'])
+test_matchesURI__false('c', ['c'])
 
 instigateFromSamples = instigate(
   SAMPLE_ROUTES
 )
 test_instigate = taggedTest('instigate', instigateFromSamples)
 
-test_instigate('/a/b/:c', '/a/b/:c', true)
-test_instigate('localhost:5050/a/b/:c', '/a/b/:c', true)
-test_instigate('/nope', '/nope', false)
+test_instigate__true = test_instigate(true)
+
+test_instigate__true('/a/b/:c', '/a/b/:c')
+test_instigate__true('localhost:5050/a/b/:c', 'localhost:5050/a/b/:c')
+
+test_instigate__false = test_instigate(false)
+
+test_instigate__false('/nope', '/nope')
 
