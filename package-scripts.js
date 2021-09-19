@@ -24,8 +24,7 @@ module.exports = {
     dev: {
       description: "run in browser",
       script: `concurrently ${[
-        '"date"',
-        `"watch 'nps build.dev' src"`,
+        `"watch 'date && nps build.dev' src"`,
         `"nps build.sync"`,
       ].join(" ")}`,
     },

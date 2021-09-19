@@ -5,8 +5,9 @@ import type { Maybe } from 'Maybe'
 import {} from 'Number'
 import { split } from 'String'
 import { tail, filter, nth, len } from 'List'
-import { ifElse, always, notEquals, any } from 'Function'
+import { identity, ifElse, always, notEquals, any } from 'Function'
 import { lt } from 'Compare'
+import { fst } from 'Tuple'
 
 import { startsWith } from './String'
 import { addIndex } from './Function'
@@ -39,7 +40,7 @@ CONFIG_SHOW_LOGS = true
 
 taggedLog = conditionalTaggedLog(CONFIG_SHOW_LOGS)
 
-type Match good = ExplicitMatch(good) | WildcardMatch(good) | NoMatch
+type Match String = ExplicitMatch(String) | WildcardMatch(String) | NoMatch
 alias LocationParts = List String
 
 selectFrom :: List RouteView -> LocationParts -> List (Maybe RouteView)
@@ -48,8 +49,8 @@ selectFrom = (routes, routeParts) => addIndex(map)(
 )(routeParts)
 
 
-lookForMatches :: List RouteView -> LocationParts -> List (Match String)
-export lookForMatches = (routes, given) => ifElse(
+parseURI :: List RouteView -> LocationParts -> List (Match String)
+export parseURI = (routes, given) => ifElse(
   any(startsWith(':')),
   map((x) => startsWith(':', x)
     ? WildcardMatch(x)
@@ -66,8 +67,7 @@ export lookForMatches = (routes, given) => ifElse(
 
 initialPath = pipe(
   .path,
-  split('/'),
-  tail
+  split('/')
 )
 
 testURI :: List RouteView -> LocationParts -> List (List (Match String))
@@ -77,7 +77,7 @@ export testURI = (routes, given) => map(
     ifElse(
       pipe(len, notEquals(len(given))),
       always([NoMatch]),
-      lookForMatches(routes)
+      parseURI(routes)
     )
   )
 )(routes)
@@ -102,7 +102,13 @@ decodeURI = (x) => #- decodeURIComponent(x) -#
 // transformPathToParams :: List RouteView -> LocationParts -> List (List 
 transformPathToParams = (routes, given) => map(pipe(
   initialPath,
-  lookForMatches(routes),
+  parseURI(routes),
+  imap((w, i) => pipe(where {
+    ExplicitMatch(x) => ({status: 'e', value: x, i})
+    WildcardMatch(x) => ({status: 'w', value: x, i})
+    NoMatch =>          ({status: 'n', value: '!', i})
+  })(w)),
+  filter((x) => x.status != 'n'),
   map((segments) => pipe(
     (gv) => ({given: gv, segments})
     // filter(startsWith(':'))
@@ -118,12 +124,12 @@ instigateHead = pipe(
   filter(notEquals('')),
   ifElse(
     pipe(len, lt(1)),
-    tail,
+    identity,
     always([])
   )
 )
 
-instigate :: List RouteView -> String -> List (List {given :: List String, segments :: Match(String) })
+// instigate :: List RouteView -> String -> List (List {given :: List String, segments :: Match(String) })
 export instigate = (routes, locationPath) => pipe(
   instigateHead,
   ifElse(
@@ -155,7 +161,7 @@ testInstigate = instigate(SAMPLE)
   // window.traceOnce = traceOnce
   window.testURI = testURI
   window.matchesURI = matchesURI
-  window.lookForMatches = lookForMatches
+  window.parseURI = parseURI
 {/Browser}
 -#
 
