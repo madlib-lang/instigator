@@ -39,7 +39,7 @@ CONFIG_SHOW_LOGS = true
 
 taggedLog = conditionalTaggedLog(CONFIG_SHOW_LOGS)
 
-type Match = ExplicitMatch | WildcardMatch | NoMatch
+type Match good = ExplicitMatch(good) | WildcardMatch(good) | NoMatch
 alias LocationParts = List String
 
 selectFrom :: List RouteView -> LocationParts -> List (Maybe RouteView)
@@ -48,14 +48,17 @@ selectFrom = (routes, routeParts) => addIndex(map)(
 )(routeParts)
 
 
-lookForMatches :: List RouteView -> LocationParts -> List Match
+lookForMatches :: List RouteView -> LocationParts -> List (Match String)
 export lookForMatches = (routes, given) => ifElse(
   any(startsWith(':')),
-  always([WildcardMatch]),
+  map((x) => startsWith(':', x)
+    ? WildcardMatch(x)
+    : NoMatch
+  ),
   pipe(
     selectFrom(routes),
     map(where {
-      Just(_) => ExplicitMatch
+      Just(x) => ExplicitMatch(x.path)
       Nothing => NoMatch
     })
   )
@@ -67,7 +70,7 @@ initialPath = pipe(
   tail
 )
 
-testURI :: List RouteView -> LocationParts -> List (List Match)
+testURI :: List RouteView -> LocationParts -> List (List (Match String))
 export testURI = (routes, given) => map(
   pipe(
     initialPath, 
@@ -79,11 +82,11 @@ export testURI = (routes, given) => map(
   )
 )(routes)
 
-matchToBoolean :: Match -> Boolean
+matchToBoolean :: Match(String) -> Boolean
 matchToBoolean = (x) => pipe(
   where {
-    ExplicitMatch => true
-    WildcardMatch => true
+    ExplicitMatch(_) => true
+    WildcardMatch(_) => true
     NoMatch => false
   }
 )(x)
@@ -120,7 +123,7 @@ instigateHead = pipe(
   )
 )
 
-instigate :: List RouteView -> String -> List (List {given :: List String, segments :: Match })
+instigate :: List RouteView -> String -> List (List {given :: List String, segments :: Match(String) })
 export instigate = (routes, locationPath) => pipe(
   instigateHead,
   ifElse(
