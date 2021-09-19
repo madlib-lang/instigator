@@ -1,11 +1,11 @@
 import IO from "IO"
 import { Just, Nothing } from 'Maybe'
 import type { Maybe } from 'Maybe'
-import type { Element } from 'MadUI'
+// import type { Element } from 'MadUI'
 import {} from 'Number'
 import { split } from 'String'
-import { tail, filter, reduce, concat, nth, find, len, slice } from 'List'
-import { memoize, ifElse, identity, always, notEquals, any } from 'Function'
+import { tail, filter, nth, len } from 'List'
+import { ifElse, always, notEquals, any } from 'Function'
 import { lt } from 'Compare'
 
 import { startsWith } from './String'
@@ -30,8 +30,8 @@ export alias RouteView = {
 
 conditionalTaggedLog :: Boolean -> String -> String -> a -> a
 conditionalTaggedLog = (condition, tag, x, y) => (
-  condition ?
-    IO.trace(tag ++ x, y)
+  condition
+    ? IO.trace(tag ++ x, y)
     : y
 )
 
@@ -39,27 +39,16 @@ CONFIG_SHOW_LOGS = true
 
 taggedLog = conditionalTaggedLog(CONFIG_SHOW_LOGS)
 
-shout :: String -> (a -> b) -> a -> b
-shout = (tag, fn, a) => pipe(
-  taggedLog,
-  (tagger) => pipe(
-    tagger('input'),
-    fn,
-    tagger('output')
-  )(a)
-)(tag)
-
-shout2 = (tag, fn, a, b) => shout(tag, (_) => fn(a, b))
-shout3 = (tag, fn, a, b, c) => shout(tag, (_) => fn(a, b, c))
-
 type Match = ExplicitMatch | WildcardMatch | NoMatch
+alias LocationParts = List String
 
-// selectFrom :: List RouteView -> List String -> List Maybe a
+selectFrom :: List RouteView -> LocationParts -> List (Maybe RouteView)
 selectFrom = (routes, routeParts) => addIndex(map)(
   (_, i) => nth(i, routes)
 )(routeParts)
 
-lookForMatches :: List RouteView -> List String -> List Match
+
+lookForMatches :: List RouteView -> LocationParts -> List Match
 export lookForMatches = (routes, given) => ifElse(
   any(startsWith(':')),
   always([WildcardMatch]),
@@ -72,15 +61,13 @@ export lookForMatches = (routes, given) => ifElse(
   )
 )(given)
 
-export lookForMatchesWithLogs = shout2('lookForMatches', lookForMatches)
-
 initialPath = pipe(
   .path,
   split('/'),
   tail
 )
 
-testURI :: List RouteView -> List String -> List (List Match)
+testURI :: List RouteView -> LocationParts -> List (List Match)
 export testURI = (routes, given) => map(
   pipe(
     initialPath, 
@@ -91,7 +78,6 @@ export testURI = (routes, given) => map(
     )
   )
 )(routes)
-export testURIWithLogs = shout2('testURI', testURI) 
 
 matchToBoolean :: Match -> Boolean
 matchToBoolean = (x) => pipe(
@@ -102,20 +88,18 @@ matchToBoolean = (x) => pipe(
   }
 )(x)
 
-matchesURI :: List RouteView -> List String -> Boolean
+matchesURI :: List RouteView -> LocationParts -> Boolean
 export matchesURI = (routes, given) => pipe(
   testURI(routes),
   any(any(matchToBoolean))
 )(given)
-// export matchesURIWithLogs = shout2('matchesURI', (routes, given) => pipe(
-//   testURIWithLogs(routes),
-//   any(any(matchToBoolean))
-// )(given))
 
 decodeURI = (x) => #- decodeURIComponent(x) -#
 
+// transformPathToParams :: List RouteView -> LocationParts -> List (List 
 transformPathToParams = (routes, given) => map(pipe(
   initialPath,
+  lookForMatches(routes),
   map((segments) => pipe(
     (gv) => ({given: gv, segments})
     // filter(startsWith(':'))
@@ -124,9 +108,8 @@ transformPathToParams = (routes, given) => map(pipe(
     // imap((propName, i) => <Just(propName), decodeURIComponent>)
   )(given))
 ))(routes)
-// transformPathToParams = shout2('transformPathToParams', transformPathToParams_)
 
-instigateHead :: String -> List String
+instigateHead :: String -> LocationParts
 instigateHead = pipe(
   split('/'),
   filter(notEquals('')),
@@ -137,16 +120,15 @@ instigateHead = pipe(
   )
 )
 
-// instigate :: List RouteView -> String -> Boolean
+instigate :: List RouteView -> String -> List (List {given :: List String, segments :: Match })
 export instigate = (routes, locationPath) => pipe(
   instigateHead,
   ifElse(
     matchesURI(routes),
-    (_) => transformPathToParams(routes, locationPath),
+    transformPathToParams(routes),
     always([])
   )
 )(locationPath)
-export instigateWithLogs = shout2('instigate', instigate)
 
 SAMPLE = [
   { path: '/alpha/beta' },
@@ -156,16 +138,17 @@ SAMPLE = [
 testInstigate = instigate(SAMPLE)
 #-
   if (typeof window !== 'undefined') {
+    console.log("SAMPLE DATA", SAMPLE)
     console.log('here', getLocation())
-    console.log('instigate', testInstigate(getLocation()))
-    console.log('instigate cool', testInstigate('/gamma/delta/cool'))
-    console.log('instigate fence', instigate(SAMPLE)('/name/brekk/detail/testing'))
+    console.log('instigate / ', testInstigate(getLocation()))
+    console.log('instigate /gamma/delta/cool', testInstigate('/gamma/delta/cool'))
+    console.log('instigate /name/brekk/detail/testing', instigate(SAMPLE)('/name/brekk/detail/testing'))
   }
 -#
 
 #-
 {Browser}
-  window.instigate = instigateWithLogs
+  window.instigate = instigate
   // window.traceOnce = traceOnce
   window.testURI = testURI
   window.matchesURI = matchesURI
