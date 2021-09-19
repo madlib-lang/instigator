@@ -4,12 +4,14 @@ import type { Maybe } from 'Maybe'
 import type { Element } from 'MadUI'
 import {} from 'Number'
 import { split } from 'String'
-import { filter, reduce, concat, nth, find, len, slice } from 'List'
+import { tail, filter, reduce, concat, nth, find, len, slice } from 'List'
 import { memoize, ifElse, identity, always, notEquals, any } from 'Function'
 import { lt } from 'Compare'
 
 import { startsWith } from './String'
 import { addIndex } from './Function'
+
+imap = addIndex(map)
 
 // Pitch!
 // notEquals should become `isNot`
@@ -25,11 +27,6 @@ getLocation = (_) => #- window.location.pathname -#
 export alias RouteView = {
   path :: String
 }
-
-// selectFrom :: List RouteView -> List String -> List Maybe a
-selectFrom = (routes, routeParts) => addIndex(map)(
-  (_, i) => nth(i, routes)
-)(routeParts)
 
 conditionalTaggedLog :: Boolean -> String -> String -> a -> a
 conditionalTaggedLog = (condition, tag, x, y) => (
@@ -52,10 +49,15 @@ shout = (tag, fn, a) => pipe(
   )(a)
 )(tag)
 
-shout2 = (tag, fn, a, b) => shout(tag, (_) => fn(a, b)) 
-shout3 = (tag, fn, a, b, c) => shout(tag, (_) => fn(a, b, c)) 
+shout2 = (tag, fn, a, b) => shout(tag, (_) => fn(a, b))
+shout3 = (tag, fn, a, b, c) => shout(tag, (_) => fn(a, b, c))
 
 type Match = ExplicitMatch | WildcardMatch | NoMatch
+
+// selectFrom :: List RouteView -> List String -> List Maybe a
+selectFrom = (routes, routeParts) => addIndex(map)(
+  (_, i) => nth(i, routes)
+)(routeParts)
 
 lookForMatches :: List RouteView -> List String -> List Match
 export lookForMatches = (routes, given) => ifElse(
@@ -72,12 +74,16 @@ export lookForMatches = (routes, given) => ifElse(
 
 export lookForMatchesWithLogs = shout2('lookForMatches', lookForMatches)
 
+initialPath = pipe(
+  .path,
+  split('/'),
+  tail
+)
+
 testURI :: List RouteView -> List String -> List (List Match)
 export testURI = (routes, given) => map(
   pipe(
-    .path,
-    split('/'),
-    slice(1, Infinity),
+    initialPath, 
     ifElse(
       pipe(len, notEquals(len(given))),
       always([NoMatch]),
@@ -106,21 +112,39 @@ export matchesURI = (routes, given) => pipe(
 //   any(any(matchToBoolean))
 // )(given))
 
+decodeURI = (x) => #- decodeURIComponent(x) -#
+
+transformPathToParams = (routes, given) => map(pipe(
+  initialPath,
+  map((segments) => pipe(
+    (gv) => ({given: gv, segments})
+    // filter(startsWith(':'))
+    // map(tail)
+    // selectFrom(routes)
+    // imap((propName, i) => <Just(propName), decodeURIComponent>)
+  )(given))
+))(routes)
+// transformPathToParams = shout2('transformPathToParams', transformPathToParams_)
+
 instigateHead :: String -> List String
 instigateHead = pipe(
   split('/'),
   filter(notEquals('')),
   ifElse(
     pipe(len, lt(1)),
-    slice(1, Infinity),
+    tail,
     always([])
   )
 )
 
-instigate :: List RouteView -> String -> Boolean
+// instigate :: List RouteView -> String -> Boolean
 export instigate = (routes, locationPath) => pipe(
   instigateHead,
-  matchesURI(routes)
+  ifElse(
+    matchesURI(routes),
+    (_) => transformPathToParams(routes, locationPath),
+    always([])
+  )
 )(locationPath)
 export instigateWithLogs = shout2('instigate', instigate)
 
