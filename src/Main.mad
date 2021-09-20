@@ -4,19 +4,15 @@ import type { Maybe } from 'Maybe'
 // import type { Element } from 'MadUI'
 import {} from 'Number'
 import { split } from 'String'
-import { tail, filter, nth, len } from 'List'
-import { identity, ifElse, always, notEquals, any } from 'Function'
+import { includes, tail, filter, nth, len } from 'List'
+import { equals, identity, ifElse, always, notEquals, any } from 'Function'
 import { lt } from 'Compare'
-import { fst } from 'Tuple'
+// import { fst } from 'Tuple'
 
 import { startsWith } from './String'
 import { addIndex } from './Function'
 
 imap = addIndex(map)
-
-// Pitch!
-// notEquals should become `isNot`
-// equals should get an alias `is`
 
 // !TODO: change when nullary functions land
 getLocation = (_) => #- window.location.pathname -#
@@ -50,24 +46,49 @@ selectFrom = (routes, routeParts) => addIndex(map)(
 
 
 parseURI :: List RouteView -> LocationParts -> List (Match String)
-export parseURI = (routes, given) => ifElse(
-  any(startsWith(':')),
-  map((x) => startsWith(':', x)
-    ? WildcardMatch(x)
-    : NoMatch
-  ),
-  pipe(
-    selectFrom(routes),
-    map(where {
-      Just(x) => ExplicitMatch(x.path)
-      Nothing => NoMatch
-    })
+export parseURI = (routes, given) => pipe(
+  ifElse(
+    pipe(
+      len,
+      equals(len(routes))
+    ),
+    ifElse(
+      any(startsWith(':')),
+      pipe(
+        IO.trace('colonic'),
+        map((x) => startsWith(':', x)
+          ? WildcardMatch(x)
+          : includes(x, given)
+            ? ExplicitMatch(x)
+            : NoMatch
+        )
+      ),
+      pipe(
+        selectFrom(routes),
+        imap((w, i) => pipe(
+          where {
+            Just(x) => pipe(
+              .path,
+              split('/'),
+              nth(i, $),
+              where {
+                Just(y) => ExplicitMatch(y)
+                Nothing => NoMatch
+              }
+            )(x)
+            Nothing => NoMatch
+          }
+        )(w))
+      )
+    ),
+    always([NoMatch])
   )
 )(given)
 
 initialPath = pipe(
   .path,
-  split('/')
+  split('/'),
+  tail
 )
 
 testURI :: List RouteView -> LocationParts -> List (List (Match String))
@@ -102,20 +123,28 @@ decodeURI = (x) => #- decodeURIComponent(x) -#
 // transformPathToParams :: List RouteView -> LocationParts -> List (List 
 transformPathToParams = (routes, given) => map(pipe(
   initialPath,
-  parseURI(routes),
+  ifElse(
+    pipe(len, equals(len(given))),
+    parseURI(routes),
+    always([NoMatch])
+  ),
+  IO.trace('raw matches'),
+  // selectFrom(routes),
+  /*
   imap((w, i) => pipe(where {
     ExplicitMatch(x) => ({status: 'e', value: x, i})
     WildcardMatch(x) => ({status: 'w', value: x, i})
     NoMatch =>          ({status: 'n', value: '!', i})
   })(w)),
-  filter((x) => x.status != 'n'),
-  map((segments) => pipe(
+  */
+  // filter((x) => x.status != 'n'),
+  (segments) => pipe(
     (gv) => ({given: gv, segments})
     // filter(startsWith(':'))
     // map(tail)
     // selectFrom(routes)
     // imap((propName, i) => <Just(propName), decodeURIComponent>)
-  )(given))
+  )(given)
 ))(routes)
 
 instigateHead :: String -> LocationParts
@@ -144,10 +173,17 @@ SAMPLE = [
   { path: '/gamma/delta/:epsilon' },
   { path: '/name/:name/detail/:detail' }
 ]
-testInstigate = instigate(SAMPLE)
+
+j2 = (x) => #- JSON.stringify(x, null, 2) -#
+
+testInstigate = pipe(
+  instigate(SAMPLE)
+  // j2,
+  // IO.trace('instigated')
+)
 #-
   if (typeof window !== 'undefined') {
-    console.log("SAMPLE DATA", SAMPLE)
+    console.log("SAMPLE DATA", JSON.stringify(SAMPLE, null, 2))
     console.log('here', getLocation())
     console.log('instigate / ', testInstigate(getLocation()))
     console.log('instigate /gamma/delta/cool', testInstigate('/gamma/delta/cool'))
