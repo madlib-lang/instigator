@@ -36,7 +36,7 @@ CONFIG_SHOW_LOGS = true
 
 taggedLog = conditionalTaggedLog(CONFIG_SHOW_LOGS)
 
-type Match String = ExplicitMatch(String) | WildcardMatch(String) | NoMatch
+export type Match String = ExplicitMatch(String) | WildcardMatch(String) | NoMatch
 alias LocationParts = List String
 
 selectFrom :: List RouteView -> LocationParts -> List (Maybe RouteView)

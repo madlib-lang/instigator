@@ -4,3 +4,4 @@ node_modules
 madlib_modules
 .tests
 .coverage
+.obsidian
