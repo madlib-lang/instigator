@@ -29,6 +29,11 @@ export alias RouteView = {
   path :: String
 }
 
+initialPath = pipe(
+  .path,
+  split('/')
+)
+
 /**
  * Log sometimes
  * 
@@ -67,22 +72,23 @@ matchesWildcards :: LocationParts -> List (Match String)
 matchesWildcards = (given) => map(
   (x) => startsWith(':', x)
     ? WildcardMatch(x)
-    : includes(x, given)
+    : x != '' && includes(x, given)
       ? ExplicitMatch(x)
       : NoMatch
 )(given)
 
 matchesExplicits :: List RouteView -> LocationParts -> List (Match String)
 matchesExplicits = (routes, given) => pipe(
+  IO.trace('given route'),
   selectFrom(routes),
+  IO.trace('selected route'),
   imap((w, i) => pipe(
     where {
       Just(x) => pipe(
-        .path,
-        split('/'),
-        nth(i, $),
+        initialPath,
+        nth(i),
         where {
-          Just(y) => ExplicitMatch(y)
+          Just(y) => y != '' ? ExplicitMatch(y) : NoMatch
           Nothing => NoMatch
         }
       )(x)
@@ -106,21 +112,13 @@ coerceString = (x) => #- x.toString() -#
 coerceBool :: a -> Boolean
 coerceBool = (x) => #- !!x -#
 
-initialPath = pipe(
-  .path,
-  split('/'),
-  filter(coerceBool)
-)
+
 
 testURI :: List RouteView -> LocationParts -> List (List (Match String))
 export testURI = (routes, given) => map(
   pipe(
     initialPath, 
-    ifElse(
-      pipe(len, notEquals(len(given))),
-      always([NoMatch]),
-      parseURI(routes)
-    )
+    parseURI(routes)
   )
 )(routes)
 
@@ -174,31 +172,21 @@ transformPathToParams = (routes, given) => pipe(
       pipe(len, equals(len(given))),
       parseURI(routes),
       always([NoMatch])
-    ),
-    filter(matchToBoolean)
-  )),
-  filter(pipe(
-    len,
-    lt(0)
-  )),
-  IO.trace('transformed')
-  // filter(any(startsWith(':'))),
-  // map(tail)
-  // selectFrom(routes),
-  // map(where {
-  //   Just(propName) => <propName, decodeURIComponent
-  // })(p)
+    )
+  ))
 )(routes)
 
 instigateHead :: String -> LocationParts
 instigateHead = pipe(
-  split('/'),
-  filter(notEquals('')),
+  split('/')
+  // filter(notEquals('')),
+  /*
   ifElse(
     pipe(len, lt(1)),
     identity,
     always([])
   )
+  */
 )
 
 stringTail = (x) => #- x.slice(1, Infinity) -#
@@ -216,12 +204,14 @@ export instigate = (routes, locationPath) => pipe(
     matchesURI(routes),
     pipe(
       transformPathToParams(routes),
+      // filter(any(matchToBoolean)),
+      // map(filter(matchToBoolean)),
       map(imap((m, i) => pipe(
           where {
-            ExplicitMatch(x) => Just({match: 'explicit', value: x})
+            ExplicitMatch(x) => Just({kind: 'explicit', match: x, value: x})
             WildcardMatch(e) => pipe(
               nth(i),
-              map((y) => ({ match: stringTail(e), value: y }))
+              map((y) => ({ kind: 'wildcard', match: stringTail(e), value: y }))
             )(given)
             NoMatch => Nothing
           }
@@ -229,13 +219,15 @@ export instigate = (routes, locationPath) => pipe(
       )),
       map(map(where {
         Just(x) => x
-        Nothing => ({match: 'none', value: ''})
-      })),
+        Nothing => ({kind: 'nothing', match: 'none', value: ''})
+      }))
+      /*
       nth(0),
       where {
         Just(x) => x
         Nothing => []
       }
+      */
     ),
     always([]),
     given
