@@ -21,10 +21,19 @@ getLocation = (_) => #- window.location.pathname -#
 // applyRelativeTo = (that, fn, xs) => #- fn.apply(that, xs) -#
 // apply = applyRelativeTo(null)
 
+/**
+ * RouteView type
+ * @since 0.0.1
+ */
 export alias RouteView = {
   path :: String
 }
 
+/**
+ * Log sometimes
+ * 
+ * @since 0.0.1
+ */
 conditionalTaggedLog :: Boolean -> String -> String -> a -> a
 conditionalTaggedLog = (condition, tag, x, y) => (
   condition
@@ -36,44 +45,58 @@ CONFIG_SHOW_LOGS = true
 
 taggedLog = conditionalTaggedLog(CONFIG_SHOW_LOGS)
 
-export type Match String = ExplicitMatch(String) | WildcardMatch(String) | NoMatch
+/**
+ * Match type
+ * @since 0.0.1
+ */
+export type Match String = ExplicitMatch(String)
+                         | WildcardMatch(String)
+                         | NoMatch
+/**
+ * LocationParts type
+ * @since 0.0.1
+ */
 alias LocationParts = List String
 
-selectFrom :: List RouteView -> LocationParts -> List (Maybe RouteView)
+// selectFrom :: List RouteView -> LocationParts -> List (Maybe RouteView)
 selectFrom = (routes, routeParts) => addIndex(map)(
   (_, i) => nth(i, routes)
 )(routeParts)
 
+matchesWildcards :: LocationParts -> List (Match String)
+matchesWildcards = (given) => map(
+  (x) => startsWith(':', x)
+    ? WildcardMatch(x)
+    : includes(x, given)
+      ? ExplicitMatch(x)
+      : NoMatch
+)(given)
+
+matchesExplicits :: List RouteView -> LocationParts -> List (Match String)
+matchesExplicits = (routes, given) => pipe(
+  selectFrom(routes),
+  imap((w, i) => pipe(
+    where {
+      Just(x) => pipe(
+        .path,
+        split('/'),
+        nth(i, $),
+        where {
+          Just(y) => ExplicitMatch(y)
+          Nothing => NoMatch
+        }
+      )(x)
+      Nothing => NoMatch
+    }
+  )(w))
+)(given)
 
 parseURI :: List RouteView -> LocationParts -> List (Match String)
 export parseURI = (routes, given) => pipe(
   ifElse(
     any(startsWith(':')),
-    pipe(
-      map((x) => startsWith(':', x)
-        ? WildcardMatch(x)
-        : includes(x, given)
-          ? ExplicitMatch(x)
-          : NoMatch
-      )
-    ),
-    pipe(
-      selectFrom(routes),
-      imap((w, i) => pipe(
-        where {
-          Just(x) => pipe(
-            .path,
-            split('/'),
-            nth(i, $),
-            where {
-              Just(y) => ExplicitMatch(y)
-              Nothing => NoMatch
-            }
-          )(x)
-          Nothing => NoMatch
-        }
-      )(w))
-    )
+    matchesWildcards,
+    matchesExplicits(routes)
   )
 )(given)
 
@@ -101,6 +124,15 @@ export testURI = (routes, given) => map(
   )
 )(routes)
 
+/**
+ * Convert a Match to a Boolean
+ *
+ * @since 0.0.1
+ * @example
+ * matchToBoolean(WildcardMatch('*')) // true
+ * matchToBoolean(ExplicitMatch('name')) // true
+ * matchToBoolean(NoMatch) // false
+ */
 matchToBoolean :: Match(String) -> Boolean
 matchToBoolean = (x) => pipe(
   where {
@@ -110,6 +142,14 @@ matchToBoolean = (x) => pipe(
   }
 )(x)
 
+/**
+ * Given a list of routes and a location array, return a Boolean
+ *
+ * @since 0.0.1
+ * @example
+ * SAMPLES = [{path: '/cool'}]
+ * matchesURI(SAMPLES, '/cool') // true
+ */
 matchesURI :: List RouteView -> LocationParts -> Boolean
 export matchesURI = (routes, given) => pipe(
   testURI(routes),
@@ -118,6 +158,14 @@ export matchesURI = (routes, given) => pipe(
 
 decodeURI = (x) => #- decodeURIComponent(x) -#
 
+/**
+ * Given a list of routes and a location array, return a List of Lists of Matches
+ *
+ * @since 0.0.1
+ * @example
+ * SAMPLES = [{path: '/cool'}]
+ * transformPathToParams(SAMPLES, '/cool') // ExplicitMatch('/cool')
+ */
 // transformPathToParams :: List RouteView -> LocationParts -> List (List 
 transformPathToParams = (routes, given) => pipe(
   map(pipe(
@@ -132,11 +180,14 @@ transformPathToParams = (routes, given) => pipe(
   filter(pipe(
     len,
     lt(0)
-  ))
-    // filter(startsWith(':'))
-    // map(tail)
-    // selectFrom(routes)
-    // imap((propName, i) => <Just(propName), decodeURIComponent>)
+  )),
+  IO.trace('transformed')
+  // filter(any(startsWith(':'))),
+  // map(tail)
+  // selectFrom(routes),
+  // map(where {
+  //   Just(propName) => <propName, decodeURIComponent
+  // })(p)
 )(routes)
 
 instigateHead :: String -> LocationParts
@@ -150,17 +201,49 @@ instigateHead = pipe(
   )
 )
 
+stringTail = (x) => #- x.slice(1, Infinity) -#
+
+
+/**
+ * Produce a list of matched routes
+ * 
+ * @since 0.0.1
+ */
 // instigate :: List RouteView -> String -> List (List {given :: List String, segments :: Match(String) })
 export instigate = (routes, locationPath) => pipe(
   instigateHead,
-  ifElse(
+  (given) => ifElse(
     matchesURI(routes),
-    transformPathToParams(routes),
-    always([])
+    pipe(
+      transformPathToParams(routes),
+      map(imap((m, i) => pipe(
+          where {
+            ExplicitMatch(x) => Just({match: 'explicit', value: x})
+            WildcardMatch(e) => pipe(
+              nth(i),
+              map((y) => ({ match: stringTail(e), value: y }))
+            )(given)
+            NoMatch => Nothing
+          }
+        )(m)
+      )),
+      map(map(where {
+        Just(x) => x
+        Nothing => ({match: 'none', value: ''})
+      })),
+      nth(0),
+      where {
+        Just(x) => x
+        Nothing => []
+      }
+    ),
+    always([]),
+    given
   )
 )(locationPath)
 
 SAMPLE = [
+  { path: '/zeta' },
   { path: '/alpha/beta' },
   { path: '/gamma/delta/:epsilon' },
   { path: '/name/:name/detail/:detail' }
@@ -170,6 +253,13 @@ j2 = (x) => #- JSON.stringify(x, null, 2) -#
 
 testInstigate = pipe(
   instigate(SAMPLE)
+  /*
+  map(selectFrom(SAMPLE)),
+  map(map(where {
+    Just(a) => a
+    Nothing => ''
+  }))
+  */
   // j2,
   // IO.trace('instigated')
 )

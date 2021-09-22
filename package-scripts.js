@@ -11,6 +11,7 @@ const out = {
 
 module.exports = {
   scripts: {
+    test: "madlib test --coverage",
     build: {
       dev: `madlib compile -i ${input.mad.Main} --target browser --bundle -o ${out.mad.Main}`,
       html: `copy-and-watch src/*.html build/`,

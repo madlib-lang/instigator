@@ -1,12 +1,21 @@
 {
   "name": "instigator",
   "version": "0.0.1",
+  "madlibVersion": "0.10.0",
   "main": "src/Main.mad",
+  "importAliases": {
+    ".": "src"
+  },
   "dependencies": [
     {
       "url": "https://github.com/madlib-lang/madui/archive/refs/tags/v1.0.0.zip",
       "description": "MadUI",
       "minVersion": "1.0.0"
+    },
+    {
+      "url": "https://github.com/madlib-lang/maddoc-cli/archive/refs/tags/v0.0.4.zip",
+      "description": "MadDocCli",
+      "minVersion": "0.0.4"
     }
   ]
 }

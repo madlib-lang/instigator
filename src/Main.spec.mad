@@ -6,7 +6,8 @@ import {} from 'Number'
 import {} from 'String'
 import {} from 'Boolean'
 
-import {matchesURI, instigate, ExplicitMatch, WildcardMatch, NoMatch } from './Main'
+import { matchesURI, instigate, ExplicitMatch, WildcardMatch, NoMatch } from './Main'
+import {once2} from './Function'
 import type { Match } from './Main'
 
 SAMPLE_ROUTES = [
@@ -16,9 +17,7 @@ SAMPLE_ROUTES = [
   {path: '/a/b/:c'}
 ]
 
-
 taggedTest = (tag, fn, desc, input, expected) => {
-  IO.trace(tag ++ ':usecase', expected)
   return test(
     tag ++ ' - ' ++ desc,
     (_) => pipe(
@@ -52,7 +51,7 @@ instigateFromSamples = pipe(
   map(map(where {
     ExplicitMatch(match) => ({kind: 'explicit', match})
     WildcardMatch(match) => ({kind: 'wildcard', match})
-    NoMatch => ({kind: 'no-match', match: ''})
+    NoMatch              => ({kind: 'no-match', match: ''})
   }))
 )
 test_instigate = taggedTest('instigate', instigateFromSamples)
@@ -61,23 +60,16 @@ test_instigate('/a/b/:c', '/a/b/:c', [
   [
     {kind:"explicit", match:"a"},
     {kind:"explicit", match:"b"},
-    {kind:"wildcard",match:":c"}
-  ]
-])
-test_instigate('localhost:5050/a/b/:c', 'localhost:5050/a/b/:c', [
-  [
-    {kind:"explicit", match:"a"},
-    {kind:"explicit", match:"b"},
-    {kind:"wildcard",match:":c"}
+    {kind:"wildcard", match:":c"}
   ]
 ])
 
-test_instigate('localhost:5050/name/arnaud/detail/points', 'localhost:5050/name/arnaud/detail/points', [
+test_instigate('/name/arnaud/detail/points', '/name/arnaud/detail/points', [
   [
     {kind:"explicit", match:"name"},
-    {kind:"wildcard",match:":name"},
+    {kind:"wildcard", match:":name"},
     {kind:"explicit", match:"detail"},
-    {kind:"wildcard",match:":detail"}
+    {kind:"wildcard", match:":detail"}
   ]
 ])
 

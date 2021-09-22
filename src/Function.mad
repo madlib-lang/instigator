@@ -29,15 +29,12 @@ IO.trace(
     ['a', 'b', 'c', 'd']
   )
 )
-*/
-/*
+
 export type OnceStatus
   = CalledBinary(a, b, c)
   | Called(a, b)
   | Stasis
-*/
 
-/*
 once = (fn) => {
   status = Stasis
   result = ()
@@ -51,9 +48,6 @@ once = (fn) => {
   )
   return arity1
 }
-*/
-
-/*
 once2 = (fn) => {
   status = Stasis
   changeStatus = (a, b) => {
@@ -68,8 +62,9 @@ once2 = (fn) => {
   )(status)
   return arity2
 }
+*/
 
-once2 = (fn) => #-{
+export once2 = (fn) => #-{
   const cache = { set: false }
   return function binary(a) { return function unary(b) {
     if (cache.set) return cache.value
@@ -78,7 +73,7 @@ once2 = (fn) => #-{
     return cache.value
   } }
 }-#
-
+/*
 traceOnce = once2(IO.trace)
 traceOnce('hey', 'there')
 traceOnce('a', 'b')
