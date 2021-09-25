@@ -79,3 +79,6 @@ traceOnce('hey', 'there')
 traceOnce('a', 'b')
 traceOnce('x', 'y')
 */
+// applyRelativeTo :: a -> (b -> c) -> List b -> c
+// applyRelativeTo = (that, fn, xs) => #- fn.apply(that, xs) -#
+// apply = applyRelativeTo(null)
