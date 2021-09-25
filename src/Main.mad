@@ -151,19 +151,6 @@ transformPathToParams = (routes, given) => pipe(
 
 stringTail = (x) => #- x.slice(1, Infinity) -#
 
-/**
- * DiscreteMatch type
- * @since 0.0.1
- */
-// export alias DiscreteMatch = {
-//   kind  :: String,
-//   match :: String,
-//   value :: String,
-//   index :: Number
-// }
-
-
-
 matchToDiscreteMatch :: LocationParts -> List (List (Match String)) -> List (List (DiscreteMatch String Number))
 matchToDiscreteMatch = (given, routes) => pipe(
   map(imap((m, index) => pipe(
@@ -210,8 +197,8 @@ discreteMatchToString = (
   }
 )
 
-warnMissing :: List (List (DiscreteMatch String Number)) -> List (List (DiscreteMatch String Number))
-warnMissing = (given) => pipe(
+warnOnPartialMatches :: List (List (DiscreteMatch String Number)) -> List (List (DiscreteMatch String Number))
+warnOnPartialMatches = (given) => pipe(
   reject(pipe(
     last,
     maybeToDiscreteMatch
@@ -227,7 +214,7 @@ warnMissing = (given) => pipe(
 )(given)
 
 alias Config = {
-  warnMissing :: Boolean
+  warnOnPartialMatches :: Boolean
 }
 
 /**
@@ -245,8 +232,8 @@ export instigate = (config, routes, locationPath) => pipe(
       matchToDiscreteMatch(given),
       skipLeadingNoMatch,
       (
-        config.warnMissing
-          ? warnMissing
+        config.warnOnPartialMatches
+          ? warnOnPartialMatches
           : skipTrailingNoMatch
       ),
       chain(identity),
@@ -266,7 +253,7 @@ SAMPLE = [
 ]
 
 j2 = (x) => #- JSON.stringify(x, null, 2) -#
-CONFIG = {warnMissing: true}
+CONFIG = {warnOnPartialMatches: true}
 testInstigate = pipe(
   instigate(CONFIG, SAMPLE)
   // j2,
