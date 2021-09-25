@@ -8,6 +8,7 @@ module.exports = {
     baseDir: "./build",
   },
   reloadDebounce: 1500,
-  open: false,
+  open: true,
+  reloadOnRestart: true,
   notify: false,
 }

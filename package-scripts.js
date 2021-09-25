@@ -8,7 +8,7 @@ const out = {
     Main: "build/bundle.js",
   },
 }
-
+const PORT = process.env.PORT || "3000"
 module.exports = {
   scripts: {
     test: "madlib test --coverage",
@@ -23,10 +23,11 @@ module.exports = {
     },
 
     dev: {
+      reload: `browser-sync reload --url http://localhost:${PORT} --files="*.js"`,
       description: "run in browser",
       script: `concurrently ${[
         `"watch 'date && nps build.dev' src"`,
-        `"nps build.sync"`,
+        `"nps build.sync dev.reload"`,
       ].join(" ")}`,
     },
     care: `nps build`,

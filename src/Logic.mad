@@ -1,0 +1,5 @@
+coerceString :: a -> String
+coerceString = (x) => #- x.toString() -#
+
+coerceBool :: a -> Boolean
+coerceBool = (x) => #- !!x -#

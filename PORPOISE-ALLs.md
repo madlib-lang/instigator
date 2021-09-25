@@ -3,13 +3,13 @@
 ## Prelude: Function
 
 - add `addIndex` - convert a unary map into augmented map with index
-```
-addIndex :: ((a -> b) -> c -> d) -> (a -> Number -> b) -> c -> d
-```
+  ```
+  addIndex :: ((a -> b) -> c -> d) -> (a -> Number -> b) -> c -> d
+  ```
 - add `once` (and similar `once2` - `once9`) utility functions
   Implementation pending, see `src/Function.mad` for more details on attempts
 
-- alias 'equals' to 'is' and `notEquals` to `isNot`
+- alias `equals` to `is` and `notEquals` to `isNot`
   Shorter and the grammarian in me hates `notEquals`
 
 ## Prelude: String

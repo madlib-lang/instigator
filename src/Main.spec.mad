@@ -1,12 +1,13 @@
 import { assertEquals, test } from "TestTools"
 import { EQUAL, LESS, MORE } from "Compare"
+import {Just} from 'Maybe'
 
 import IO from 'IO'
 import {} from 'Number'
 import {} from 'String'
 import {} from 'Boolean'
 
-import { matchesURI, instigate, ExplicitMatch, WildcardMatch, NoMatch } from './Main'
+import { selectFrom, matchesURI, instigate, ExplicitMatch, WildcardMatch, NoMatch } from './Main'
 import {once2} from './Function'
 import type { Match } from './Main'
 
@@ -27,10 +28,13 @@ taggedTest = (tag, fn, desc, input, expected) => {
   )
 }
 
+test_selectFrom = taggedTest('selectFrom', selectFrom(SAMPLE_ROUTES))
+test_selectFrom('basic behavior', ['j','k','l'], [Just({path: 'm'})]) 
+
+// make unary
 matchesSample = matchesURI(
   SAMPLE_ROUTES
 )
-
 test_matchesURI = taggedTest('matchesURI', matchesSample)
 
 test_matchesURI('gamma delta', ['gamma', 'delta'], true)
@@ -47,29 +51,29 @@ test_matchesURI('c', ['c'], false)
 instigateFromSamples = pipe(
   instigate(
     SAMPLE_ROUTES
-  ),
-  map(map(where {
-    ExplicitMatch(match) => ({kind: 'explicit', match})
-    WildcardMatch(match) => ({kind: 'wildcard', match})
-    NoMatch              => ({kind: 'no-match', match: ''})
-  }))
+  )
+  // map(map(where {
+  //   ExplicitMatch(match) => ({kind: 'explicit', match})
+  //   WildcardMatch(match) => ({kind: 'wildcard', match})
+  //   NoMatch              => ({kind: 'no-match', match: ''})
+  // }))
 )
 test_instigate = taggedTest('instigate', instigateFromSamples)
 
-test_instigate('/a/b/:c', '/a/b/:c', [
+test_instigate('/a/b/:c', '/a/b/coooooool', [
   [
-    {kind:"explicit", match:"a"},
-    {kind:"explicit", match:"b"},
-    {kind:"wildcard", match:":c"}
+    {kind:"explicit", match:"a", value: "a"},
+    {kind:"explicit", match:"b", value: "b"},
+    {kind:"wildcard", match:":c", value: 'coooooool'}
   ]
 ])
 
 test_instigate('/name/arnaud/detail/points', '/name/arnaud/detail/points', [
   [
-    {kind:"explicit", match:"name"},
-    {kind:"wildcard", match:":name"},
-    {kind:"explicit", match:"detail"},
-    {kind:"wildcard", match:":detail"}
+    {kind:"explicit", match:"name", value: 'name'},
+    {kind:"wildcard", match:"name", value: 'arnaud'},
+    {kind:"explicit", match:"detail", value: 'detail'},
+    {kind:"wildcard", match:"detail", value: 'points'}
   ]
 ])
 

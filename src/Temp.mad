@@ -1,3 +1,5 @@
-returno = (x) => x > 7 ? 'seven' : 7
+// returno = (x) => x > 7 ? 'seven' : 7
 
-returno(7)
+// returno(7)
+
+implicit = (x) => if (((x / 2) * 10) == 0) { 'yes' } else { 'no' }
