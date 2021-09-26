@@ -4,8 +4,20 @@ import { Just, Nothing } from 'Maybe'
 // import type { Element } from 'MadUI'
 import {} from 'Number'
 import { split } from 'String'
-import { reject, first, last, includes, tail, filter, nth, len, join } from 'List'
 import {
+  reject,
+  first,
+  last,
+  includes,
+  tail,
+  filter,
+  nth,
+  len,
+  join,
+  find
+} from 'List'
+import {
+  equals,
   identity,
   ifElse,
   always,
@@ -37,7 +49,8 @@ decodeURI = (x) => #- decodeURIComponent(x) -#
  * @since 0.0.1
  */
 export alias RouteView = {
-  path :: String
+  path :: String,
+  callback :: x -> x
 }
 
 slashes = split('/')
@@ -106,6 +119,15 @@ export type DiscreteMatch String Number
   | DiscreteWildcardMatch(String, String, Number)
   | DiscreteNoMatch(Number)
 
+/**
+ * Convert a DiscreteMatch to a Boolean
+ *
+ * @since 0.0.1
+ * @example
+ * discreteMatchToBoolean(DiscreteWildcardMatch('*')) // true
+ * discreteMatchToBoolean(DiscreteExplicitMatch('name')) // true
+ * discreteMatchToBoolean(DiscreteNoMatch) // false
+ */
 discreteMatchToBoolean :: (DiscreteMatch String Number) -> Boolean
 discreteMatchToBoolean = (
   where {
@@ -151,6 +173,11 @@ transformPathToParams = (routes, given) => pipe(
 
 stringTail = (x) => #- x.slice(1, Infinity) -#
 
+/**
+ * Given a Match, convert it to a Discrete Match (which has additional index data)
+ *
+ * @since 0.0.1
+ */
 matchToDiscreteMatch :: LocationParts -> List (List (Match String)) -> List (List (DiscreteMatch String Number))
 matchToDiscreteMatch = (given, routes) => pipe(
   map(imap((m, index) => pipe(
@@ -197,6 +224,12 @@ discreteMatchToString = (
   }
 )
 
+/**
+ * If you have a route like `a/b/:c` but are given an `/a` route to match, `/a` is not valid by itself.
+ * Since it seems possible that you may have wanted a match, here's a warning.
+ *
+ * @since 0.0.1
+ */
 warnOnPartialMatches :: List (List (DiscreteMatch String Number)) -> List (List (DiscreteMatch String Number))
 warnOnPartialMatches = (given) => pipe(
   reject(pipe(
@@ -222,34 +255,45 @@ alias Config = {
  * 
  * @since 0.0.1
  */
-instigate :: Config -> List RouteView -> String -> List String
+// instigate :: Config -> List RouteView -> String -> List String
 export instigate = (config, routes, locationPath) => pipe(
+  IO.trace('raw'),
   routeSegments,
+  IO.trace('segmented'),
   (given) => ifElse(
     matchesURI(routes),
     pipe(
       transformPathToParams(routes),
       matchToDiscreteMatch(given),
       skipLeadingNoMatch,
-      (
-        config.warnOnPartialMatches
-          ? warnOnPartialMatches
-          : skipTrailingNoMatch
-      ),
+      config.warnOnPartialMatches
+           ? warnOnPartialMatches
+           : skipTrailingNoMatch,
       chain(identity),
-      map(discreteMatchToString)
+      map(pipe(
+        discreteMatchToString
+      )),
+      join('/'),
+      (matched) => find(pipe(
+        .path,
+        equals(matched)
+      ), routes),
+      (route) => pipe(
+        .callback,
+        (x) => x(route)
+      )(route)
     ),
-    always([])
+    always({path: '', callback: (x) => x})
   )(
     given
   )
 )(locationPath)
 
 SAMPLE = [
-  { path: '/zeta' },
-  { path: 'alpha/beta' },
-  { path: '/gamma/delta/:epsilon' },
-  { path: '/name/:name/detail/:detail' }
+  { path: '/zeta', callback: IO.trace('zeta') },
+  { path: 'alpha/beta', callback: IO.trace('alpha/beta') },
+  { path: 'gamma/delta/:epsilon', callback: IO.trace('gamma/delta/:epsilon') },
+  { path: '/name/:name/detail/:detail', callback: IO.trace('/name/:name/detail/:detail') }
 ]
 
 j2 = (x) => #- JSON.stringify(x, null, 2) -#
@@ -273,7 +317,6 @@ randomHex = (_) => pipe(
   show,
   hex
 )(360)
-
 
 #-
   if (typeof window !== 'undefined') {
