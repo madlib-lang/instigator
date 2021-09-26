@@ -257,9 +257,7 @@ alias Config = {
  */
 // instigate :: Config -> List RouteView -> String -> List String
 export instigate = (config, routes, locationPath) => pipe(
-  IO.trace('raw'),
   routeSegments,
-  IO.trace('segmented'),
   (given) => ifElse(
     matchesURI(routes),
     pipe(
@@ -274,26 +272,27 @@ export instigate = (config, routes, locationPath) => pipe(
         discreteMatchToString
       )),
       join('/'),
-      (matched) => find(pipe(
-        .path,
-        equals(matched)
-      ), routes),
-      (route) => pipe(
-        .callback,
-        (x) => x(route)
-      )(route)
+      (matched) => pipe(
+        find(pipe(
+          .path,
+          (x) => equals('/' ++ matched, x) || equals(matched, x)
+        )),
+        where {
+          Just(x) => x
+          Nothing => ({ path: '', callback: (x) => x })
+        }
+      )(routes)
     ),
     always({path: '', callback: (x) => x})
-  )(
-    given
-  )
+  )(given),
+  (x) => x.callback(x.path)
 )(locationPath)
 
 SAMPLE = [
-  { path: '/zeta', callback: IO.trace('zeta') },
-  { path: 'alpha/beta', callback: IO.trace('alpha/beta') },
-  { path: 'gamma/delta/:epsilon', callback: IO.trace('gamma/delta/:epsilon') },
-  { path: '/name/:name/detail/:detail', callback: IO.trace('/name/:name/detail/:detail') }
+  { path: '/zeta', callback: IO.trace('SO COOL zeta') },
+  { path: 'alpha/beta', callback: IO.trace('SO COOL alpha/beta') },
+  { path: 'gamma/delta/:epsilon', callback: IO.trace('SO COOL gamma/delta/:epsilon') },
+  { path: '/name/:name/detail/:detail', callback: IO.trace('SO COOL /name/:name/detail/:detail') }
 ]
 
 j2 = (x) => #- JSON.stringify(x, null, 2) -#
