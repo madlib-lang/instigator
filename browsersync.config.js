@@ -1,4 +1,5 @@
 module.exports = {
+  single: true,
   ui: {
     port: 5051,
   },

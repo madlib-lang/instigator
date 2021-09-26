@@ -309,7 +309,6 @@ export instigate = (config, routes, locationPath) => pipe(
               }),
               map(discreteMatchToParams),
               reduce((agg, item) => merge(agg, objOf(item.key, item.value)), {}),
-              IO.trace('raw'),
               x.callback,
               (_) => true
             )(raw)
@@ -336,14 +335,25 @@ randomHex = (_) => pipe(
   hex
 )(360)
 
-callback = IO.trace('SO COOL')
+
+setBackground = (color, x) => #-{
+  document.body.style.background = color
+  return x
+}-#
+
+callback = (x) => pipe(
+  setBackground(randomHex(360)),
+  IO.trace('SO COOL')
+)(x)
 
 querySelector = (x) => #- document.querySelector(x) -#
 
 epsilonCallback = (params) => pipe(
   querySelector,
   (el) => #-{
-    el.style.background = randomHex(false)
+    setBackground('white')('nice')
+    // el.style.background = randomHex(false)
+    el.style.transition = "background 3s ease-out"
     el.textContent = JSON.stringify(params, null, 2)
   }-#
 )('#app')
@@ -354,17 +364,14 @@ SAMPLE = [
   { path: 'gamma/delta/:epsilon',
     callback: epsilonCallback
   },
-  { path: '/name/:name/detail/:detail', callback }
+  { path: '/name/:name/detail/:detail', callback },
+  { path: 'a/b/c/d/e/f/:g/h/i/j/:k', callback: epsilonCallback }
 ]
 
 j2 = (x) => #- JSON.stringify(x, null, 2) -#
 CONFIG = {warnOnPartialMatches: true}
-testInstigate = pipe(
-  instigate(CONFIG, SAMPLE)
-  // j2,
-  // IO.trace('instigated')
-)
 
+testInstigate = instigate(CONFIG, SAMPLE)
 
 #-
   if (typeof window !== 'undefined') {
@@ -372,17 +379,8 @@ testInstigate = pipe(
       console.log('RUNNING!', new Date())
       console.log("SAMPLE DATA", JSON.stringify(SAMPLE, null, 2))
       console.log('here', getLocation())
-      console.log('instigate / ', testInstigate(getLocation()))
-      /*
-      console.log('instigate /alpha', testInstigate('/alpha'))
-      console.log('instigate alpha/beta', testInstigate('alpha/beta'))
-      console.log('instigate /alpha/beta', testInstigate('/alpha/beta'))
-      console.log('instigate /gamma/delta/cool', testInstigate('/gamma/delta/cool'))
-      console.log('instigate /name/brekk/detail/testing', testInstigate('/name/brekk/detail/testing'))
-      console.log('instigate /name/brekk', testInstigate('/name/brekk'))
-      console.log('instigator /name/brekk/detail/cool', instigate(CONFIG)(SAMPLE)('/name/brekk/detail/cool'))
-      */
-      document.body.style.background = randomHex(false)
+      // document.body.style.background = randomHex(false)
+      console.log(`instigate ${getLocation()} `, testInstigate(getLocation()))
     }
   }
 -#
