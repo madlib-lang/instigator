@@ -25,7 +25,6 @@ import {
   any
 } from 'Function'
 import { lt } from 'Compare'
-import { fst, snd } from 'Tuple'
 
 import { startsWith } from './String'
 import { addIndex } from './Function'
@@ -323,23 +322,6 @@ export instigate = (config, routes, locationPath) => pipe(
   )(given)
 )(locationPath)
 
-callback = IO.trace('SO COOL')
-
-SAMPLE = [
-  { path: '/zeta', callback },
-  { path: 'alpha/beta', callback },
-  { path: 'gamma/delta/:epsilon', callback },
-  { path: '/name/:name/detail/:detail', callback }
-]
-
-j2 = (x) => #- JSON.stringify(x, null, 2) -#
-CONFIG = {warnOnPartialMatches: true}
-testInstigate = pipe(
-  instigate(CONFIG, SAMPLE)
-  // j2,
-  // IO.trace('instigated')
-)
-
 hex :: String -> String
 hex = (r) => (
   'hsla(' ++ r ++ ', 100%, 50%, 1)'
@@ -354,6 +336,36 @@ randomHex = (_) => pipe(
   hex
 )(360)
 
+callback = IO.trace('SO COOL')
+
+querySelector = (x) => #- document.querySelector(x) -#
+
+epsilonCallback = (params) => pipe(
+  querySelector,
+  (el) => #-{
+    el.style.background = randomHex(false)
+    el.textContent = JSON.stringify(params, null, 2)
+  }-#
+)('#app')
+
+SAMPLE = [
+  { path: '/zeta', callback },
+  { path: 'alpha/beta', callback },
+  { path: 'gamma/delta/:epsilon',
+    callback: epsilonCallback
+  },
+  { path: '/name/:name/detail/:detail', callback }
+]
+
+j2 = (x) => #- JSON.stringify(x, null, 2) -#
+CONFIG = {warnOnPartialMatches: true}
+testInstigate = pipe(
+  instigate(CONFIG, SAMPLE)
+  // j2,
+  // IO.trace('instigated')
+)
+
+
 #-
   if (typeof window !== 'undefined') {
     window.onload = () => {
@@ -361,6 +373,7 @@ randomHex = (_) => pipe(
       console.log("SAMPLE DATA", JSON.stringify(SAMPLE, null, 2))
       console.log('here', getLocation())
       console.log('instigate / ', testInstigate(getLocation()))
+      /*
       console.log('instigate /alpha', testInstigate('/alpha'))
       console.log('instigate alpha/beta', testInstigate('alpha/beta'))
       console.log('instigate /alpha/beta', testInstigate('/alpha/beta'))
@@ -368,6 +381,7 @@ randomHex = (_) => pipe(
       console.log('instigate /name/brekk/detail/testing', testInstigate('/name/brekk/detail/testing'))
       console.log('instigate /name/brekk', testInstigate('/name/brekk'))
       console.log('instigator /name/brekk/detail/cool', instigate(CONFIG)(SAMPLE)('/name/brekk/detail/cool'))
+      */
       document.body.style.background = randomHex(false)
     }
   }
