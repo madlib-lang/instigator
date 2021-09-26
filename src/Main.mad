@@ -14,7 +14,8 @@ import {
   nth,
   len,
   join,
-  find
+  find,
+  reduce
 } from 'List'
 import {
   equals,
@@ -24,7 +25,7 @@ import {
   any
 } from 'Function'
 import { lt } from 'Compare'
-// import { fst } from 'Tuple'
+import { fst, snd } from 'Tuple'
 
 import { startsWith } from './String'
 import { addIndex } from './Function'
@@ -50,7 +51,7 @@ decodeURI = (x) => #- decodeURIComponent(x) -#
  */
 export alias RouteView = {
   path :: String,
-  callback :: x -> x
+  callback :: a -> b
 }
 
 slashes = split('/')
@@ -216,11 +217,21 @@ skipTrailingNoMatch = filter(pipe(
   maybeToDiscreteMatch 
 ))
 
-discreteMatchToString = (
+discreteMatchToIdentifiers = (
   where {
     DiscreteExplicitMatch(x, i)    => x
     DiscreteWildcardMatch(k, v, i) => k
     DiscreteNoMatch(i)             => ''
+  }
+)
+
+tailString = (x) => #- x.slice(1) -#
+
+discreteMatchToParams = (
+  where {
+    DiscreteExplicitMatch(value, _)      => ({key: 'explicit', value})
+    DiscreteWildcardMatch(key, value, _) => ({key: tailString(key), value})
+    DiscreteNoMatch(_)                   => ({key: 'no-match', value: ''})
   }
 )
 
@@ -237,7 +248,7 @@ warnOnPartialMatches = (given) => pipe(
     maybeToDiscreteMatch
   )),
   map(pipe(
-    map(discreteMatchToString),
+    map(discreteMatchToIdentifiers),
     filter((z) => z != ''),
     join('/'),
     (matched) => '/' ++ matched,
@@ -249,6 +260,18 @@ warnOnPartialMatches = (given) => pipe(
 alias Config = {
   warnOnPartialMatches :: Boolean
 }
+
+NO_ROUTE_MATCHED = 'NO_ROUTE_MATCHED'
+UNMATCHED_ROUTE = {
+  path: NO_ROUTE_MATCHED,
+  callback: (x, _) => x
+}
+
+merge :: a -> b -> c
+merge = (a, b) => #- Object.assign({}, a, b) -#
+
+objOf :: String -> a -> b
+objOf = (a, b) => #- ({[a]: b}) -#
 
 /**
  * Produce a list of matched routes
@@ -268,31 +291,45 @@ export instigate = (config, routes, locationPath) => pipe(
            ? warnOnPartialMatches
            : skipTrailingNoMatch,
       chain(identity),
-      map(pipe(
-        discreteMatchToString
-      )),
-      join('/'),
-      (matched) => pipe(
-        find(pipe(
-          .path,
-          (x) => equals('/' ++ matched, x) || equals(matched, x)
+      (raw) => pipe(
+        map(pipe(
+          discreteMatchToIdentifiers
         )),
-        where {
-          Just(x) => x
-          Nothing => ({ path: '', callback: (x) => x })
-        }
-      )(routes)
+        join('/'),
+        (matched) => pipe(
+          find(pipe(
+            .path,
+            (x) => equals('/' ++ matched, x) || equals(matched, x)
+          )),
+          where {
+            Just(x) => pipe(
+              filter(where {
+                DiscreteExplicitMatch(a, _) => false
+                DiscreteWildcardMatch(a, b, _) => true
+                DiscreteNoMatch(_) => false
+              }),
+              map(discreteMatchToParams),
+              reduce((agg, item) => merge(agg, objOf(item.key, item.value)), {}),
+              IO.trace('raw'),
+              x.callback,
+              (_) => true
+            )(raw)
+            Nothing => false
+          }
+        )(routes)
+      )(raw)
     ),
-    always({path: '', callback: (x) => x})
-  )(given),
-  (x) => x.callback(x.path)
+    always(false)
+  )(given)
 )(locationPath)
 
+callback = IO.trace('SO COOL')
+
 SAMPLE = [
-  { path: '/zeta', callback: IO.trace('SO COOL zeta') },
-  { path: 'alpha/beta', callback: IO.trace('SO COOL alpha/beta') },
-  { path: 'gamma/delta/:epsilon', callback: IO.trace('SO COOL gamma/delta/:epsilon') },
-  { path: '/name/:name/detail/:detail', callback: IO.trace('SO COOL /name/:name/detail/:detail') }
+  { path: '/zeta', callback },
+  { path: 'alpha/beta', callback },
+  { path: 'gamma/delta/:epsilon', callback },
+  { path: '/name/:name/detail/:detail', callback }
 ]
 
 j2 = (x) => #- JSON.stringify(x, null, 2) -#
