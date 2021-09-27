@@ -10,7 +10,7 @@ export alias LocationParts = List String
  */
 export alias RouteView = {
   path :: String,
-  callback :: a -> b
+  callback :: List <String, String> -> List <String, String>
 }
 
 /**
@@ -20,6 +20,7 @@ export alias RouteView = {
 export type Match String = ExplicitMatch(String)
                          | WildcardMatch(String)
                          | NoMatch
+
 /**
  * DiscreteMatch type
  * @since 0.0.1
@@ -28,3 +29,12 @@ export type DiscreteMatch String Number
   = DiscreteExplicitMatch(String, Number)
   | DiscreteWildcardMatch(String, String, Number)
   | DiscreteNoMatch(Number)
+
+/**
+ * Config type
+ * @since 0.0.1
+ */
+export alias Config = {
+  warnOnPartialMatches :: Boolean,
+  dryRun               :: Boolean
+}

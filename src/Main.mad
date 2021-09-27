@@ -11,8 +11,7 @@ import {
   filter,
   len,
   join,
-  find,
-  reduce
+  find
 } from 'List'
 import {
   equals,
@@ -24,7 +23,7 @@ import {
 
 import { slashes, startsWith } from './String'
 import { addIndex } from './Function'
-import type { LocationParts, RouteView, Match, DiscreteMatch } from './Types'
+import type { Config, LocationParts, RouteView, Match, DiscreteMatch } from './Types'
 import {
   NoMatch, DiscreteNoMatch,
   ExplicitMatch, DiscreteExplicitMatch, 
@@ -38,11 +37,17 @@ import {
   skipTrailingNoMatch,
   skipLeadingNoMatch
 } from './DiscreteMatch'
-import { objOf, merge} from './Object'
+// import { objOf, merge} from './Object'
 import { matchToBoolean } from './Match'
 
 imap = addIndex(map)
 
+/**
+ * split a String route into parts
+ * account for optional leading slash
+ *
+ * @since 0.0.1
+ */
 routeSegments :: String -> LocationParts
 routeSegments = ifElse(
   startsWith('/'),
@@ -50,23 +55,37 @@ routeSegments = ifElse(
   slashes
 )
 
+/**
+ * split a RouteView.path into parts
+ * account for optional leading slash
+ *
+ * @since 0.0.1
+ */
 initialPath :: RouteView -> LocationParts
 initialPath = pipe(
   .path,
   routeSegments
 )
 
-isWildcard = startsWith(':')
-
+/**
+ * Match a route given a list of parts
+ *
+ * @since 0.0.1
+ */
 matchRoutes :: List String -> LocationParts -> List (Match String)
-matchRoutes = (routes, given) => map(
-  (x) => isWildcard(x)
+matchRoutes = (routeStrings, given) => map(
+  (x) => startsWith(':', x)
     ? WildcardMatch(x)
     : x != '' && includes(x, given)
       ? ExplicitMatch(x)
       : NoMatch
-)(routes)
+)(routeStrings)
 
+/**
+ * Match a route given a RouteView
+ *
+ * @since 0.0.1
+ */
 testURI :: List RouteView -> LocationParts -> List (List (Match String))
 export testURI = (routes, given) => map(
   pipe(
@@ -74,7 +93,6 @@ export testURI = (routes, given) => map(
     matchRoutes($, given)
   )
 )(routes)
-
 
 /**
  * Given a list of routes and a location array, return a Boolean
@@ -132,17 +150,22 @@ warnOnPartialMatches = (given) => pipe(
   (_) => skipTrailingNoMatch(given)
 )(given)
 
-alias Config = {
-  warnOnPartialMatches :: Boolean,
-  dryRun               :: Boolean
-}
-
+/**
+ * Filter for Wildcards
+ *
+ * @since 0.0.1
+ */
 onlyWildcards = filter(where {
   DiscreteExplicitMatch(a, _) => false
   DiscreteWildcardMatch(a, b, _) => true
   DiscreteNoMatch(_) => false
 })
 
+/**
+ * Given some DiscreteMatches, conditionally hit a callback
+ *
+ * @since 0.0.1
+ */
 loadRoute :: Config -> List RouteView -> List (DiscreteMatch String Number) -> Boolean
 loadRoute = (config, routes, raw) => pipe(
   map(discreteMatchToIdentifiers),
@@ -156,7 +179,7 @@ loadRoute = (config, routes, raw) => pipe(
       Just(x) => pipe(
         onlyWildcards,
         map(discreteMatchToParams),
-        reduce((agg, item) => merge(agg, objOf(item.key, item.value)), {}),
+        map((m) => <m.key, m.value>),
         config.dryRun
           ? identity
           : x.callback,
@@ -168,7 +191,9 @@ loadRoute = (config, routes, raw) => pipe(
 )(raw)
 
 /**
- * Produce a list of matched routes
+ * Match against a list of RouteViews
+ * conditionally fire a side-effect
+ * return success
  * 
  * @since 0.0.1
  */
@@ -191,14 +216,8 @@ export instigate = (config, routes, locationPath) => pipe(
   )(given)
 )(locationPath)
 
-
 #-
 {Browser}
   window.instigate = instigate
-  // window.traceOnce = traceOnce
-  window.testURI = testURI
-  window.matchesURI = matchesURI
-  window.matchRoutes = matchRoutes
 {/Browser}
 -#
-

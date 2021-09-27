@@ -1,3 +1,10 @@
+import {} from 'String'
+import {} from 'Number'
+import IO from 'IO'
+
+import {getLocation} from './Browser'
+import {instigate} from './Main'
+
 hex :: String -> String
 hex = (r) => (
   'hsla(' ++ r ++ ', 100%, 50%, 1)'
@@ -25,18 +32,23 @@ callback = (x) => pipe(
 
 querySelector = (x) => #- document.querySelector(x) -#
 
+home = (params) => pipe(
+  querySelector,
+  (el) => #-{
+    setBackground('cyan')('nice')
+  }-#
+)('#app')
+
 epsilonCallback = (params) => pipe(
   querySelector,
   (el) => #-{
     setBackground('white')('nice')
-    // el.style.background = randomHex(false)
-    el.style.transition = "background 3s ease-out"
     el.textContent = JSON.stringify(params, null, 2)
   }-#
 )('#app')
 
 SAMPLE = [
-  { path: '/zeta', callback },
+  { path: '/', callback: home },
   { path: 'alpha/beta', callback },
   { path: 'gamma/delta/:epsilon',
     callback: epsilonCallback
@@ -46,7 +58,10 @@ SAMPLE = [
 ]
 
 j2 = (x) => #- JSON.stringify(x, null, 2) -#
-CONFIG = {warnOnPartialMatches: true}
+CONFIG = {
+  warnOnPartialMatches: true,
+  dryRun: false
+}
 
 testInstigate = instigate(CONFIG, SAMPLE)
 
