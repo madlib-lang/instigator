@@ -3,15 +3,12 @@ import { Just, Nothing } from 'Maybe'
 // import type { Maybe } from 'Maybe'
 // import type { Element } from 'MadUI'
 import {} from 'Number'
-import { split } from 'String'
 import {
   reject,
-  first,
   last,
   includes,
   tail,
   filter,
-  nth,
   len,
   join,
   find,
@@ -24,36 +21,27 @@ import {
   always,
   any
 } from 'Function'
-import { lt } from 'Compare'
 
-import { startsWith } from './String'
+import { slashes, startsWith } from './String'
 import { addIndex } from './Function'
+import type { LocationParts, RouteView, Match, DiscreteMatch } from './Types'
+import {
+  NoMatch, DiscreteNoMatch,
+  ExplicitMatch, DiscreteExplicitMatch, 
+  WildcardMatch, DiscreteWildcardMatch
+} from './Types'
+import {
+  matchToDiscreteMatch,
+  discreteMatchToParams,
+  maybeToDiscreteMatch,
+  discreteMatchToIdentifiers,
+  skipTrailingNoMatch,
+  skipLeadingNoMatch
+} from './DiscreteMatch'
+import { objOf, merge} from './Object'
+import { matchToBoolean } from './Match'
 
 imap = addIndex(map)
-
-/**
- * LocationParts type
- * @since 0.0.1
- */
-alias LocationParts = List String
-
-// !TODO: change when nullary functions land
-getLocation :: () -> String
-getLocation = (_) => #- window.location.pathname -#
-
-decodeURI :: String -> String
-decodeURI = (x) => #- decodeURIComponent(x) -#
-
-/**
- * RouteView type
- * @since 0.0.1
- */
-export alias RouteView = {
-  path :: String,
-  callback :: a -> b
-}
-
-slashes = split('/')
 
 routeSegments :: String -> LocationParts
 routeSegments = ifElse(
@@ -67,15 +55,6 @@ initialPath = pipe(
   .path,
   routeSegments
 )
-
-/**
- * Match type
- * @since 0.0.1
- */
-export type Match String = ExplicitMatch(String)
-                         | WildcardMatch(String)
-                         | NoMatch
-
 
 isWildcard = startsWith(':')
 
@@ -96,46 +75,6 @@ export testURI = (routes, given) => map(
   )
 )(routes)
 
-/**
- * Convert a Match to a Boolean
- *
- * @since 0.0.1
- * @example
- * matchToBoolean(WildcardMatch('*')) // true
- * matchToBoolean(ExplicitMatch('name')) // true
- * matchToBoolean(NoMatch) // false
- */
-matchToBoolean :: Match(String) -> Boolean
-matchToBoolean = (
-  where {
-    ExplicitMatch(_) => true
-    WildcardMatch(_) => true
-    NoMatch => false
-  }
-)
-
-export type DiscreteMatch String Number
-  = DiscreteExplicitMatch(String, Number)
-  | DiscreteWildcardMatch(String, String, Number)
-  | DiscreteNoMatch(Number)
-
-/**
- * Convert a DiscreteMatch to a Boolean
- *
- * @since 0.0.1
- * @example
- * discreteMatchToBoolean(DiscreteWildcardMatch('*')) // true
- * discreteMatchToBoolean(DiscreteExplicitMatch('name')) // true
- * discreteMatchToBoolean(DiscreteNoMatch) // false
- */
-discreteMatchToBoolean :: (DiscreteMatch String Number) -> Boolean
-discreteMatchToBoolean = (
-  where {
-    DiscreteExplicitMatch(x, i)    => true
-    DiscreteWildcardMatch(x, y, i) => true
-    DiscreteNoMatch(i)             => false
-  }
-)
 
 /**
  * Given a list of routes and a location array, return a Boolean
@@ -157,7 +96,7 @@ export matchesURI = (routes, given) => pipe(
  * @since 0.0.1
  * @example
  * SAMPLES = [{path: '/cool'}]
- * transformPathToParams(SAMPLES, '/cool') // ExplicitMatch('/cool')
+ * transformPathToParams(SAMPLES, '/cool') // [[ExplicitMatch('/cool')]]
  */
 transformPathToParams :: List RouteView -> LocationParts -> List (List (Match String))
 transformPathToParams = (routes, given) => pipe(
@@ -170,69 +109,6 @@ transformPathToParams = (routes, given) => pipe(
     )
   ))
 )(routes)
-
-stringTail = (x) => #- x.slice(1, Infinity) -#
-
-/**
- * Given a Match, convert it to a Discrete Match (which has additional index data)
- *
- * @since 0.0.1
- */
-matchToDiscreteMatch :: LocationParts -> List (List (Match String)) -> List (List (DiscreteMatch String Number))
-matchToDiscreteMatch = (given, routes) => pipe(
-  map(imap((m, index) => pipe(
-    where {
-      ExplicitMatch(x) => Just(
-        DiscreteExplicitMatch(x, index)
-      )
-      WildcardMatch(match) => pipe(
-        nth(index),
-        map((value) => (
-          DiscreteWildcardMatch(match, value, index)
-        ))
-      )(given)
-      NoMatch => Nothing
-    },
-    where {
-      Just(x) => x
-      Nothing => DiscreteNoMatch(index)
-    }
-  )(m)))
-)(routes)
-
-maybeToDiscreteMatch = (
-  where {
-    Just(x) => discreteMatchToBoolean(x)
-    Nothing => false
-  }
-)
-
-skipLeadingNoMatch = filter(pipe(
-  first,
-  maybeToDiscreteMatch
-))
-skipTrailingNoMatch = filter(pipe(
-  last,
-  maybeToDiscreteMatch 
-))
-
-discreteMatchToIdentifiers = (
-  where {
-    DiscreteExplicitMatch(x, i)    => x
-    DiscreteWildcardMatch(k, v, i) => k
-    DiscreteNoMatch(i)             => ''
-  }
-)
-
-tailString = (x) => #- x.slice(1) -#
-
-discreteMatchToParams = (
-  where {
-    DiscreteExplicitMatch(value, _)      => ({key: 'explicit', value})
-    DiscreteWildcardMatch(key, value, _) => ({key: tailString(key), value})
-    DiscreteNoMatch(_)                   => ({key: 'no-match', value: ''})
-  }
-)
 
 /**
  * If you have a route like `a/b/:c` but are given an `/a` route to match, `/a` is not valid by itself.
@@ -257,27 +133,48 @@ warnOnPartialMatches = (given) => pipe(
 )(given)
 
 alias Config = {
-  warnOnPartialMatches :: Boolean
+  warnOnPartialMatches :: Boolean,
+  dryRun               :: Boolean
 }
 
-NO_ROUTE_MATCHED = 'NO_ROUTE_MATCHED'
-UNMATCHED_ROUTE = {
-  path: NO_ROUTE_MATCHED,
-  callback: (x, _) => x
-}
+onlyWildcards = filter(where {
+  DiscreteExplicitMatch(a, _) => false
+  DiscreteWildcardMatch(a, b, _) => true
+  DiscreteNoMatch(_) => false
+})
 
-merge :: a -> b -> c
-merge = (a, b) => #- Object.assign({}, a, b) -#
-
-objOf :: String -> a -> b
-objOf = (a, b) => #- ({[a]: b}) -#
+instigate :: Config -> List RouteView -> List (DiscreteMatch String Number) -> Boolean
+loadRoute = (config, routes, raw) => pipe(
+  map(pipe(
+    discreteMatchToIdentifiers
+  )),
+  join('/'),
+  (matched) => pipe(
+    find(pipe(
+      .path,
+      (x) => equals('/' ++ matched, x) || equals(matched, x)
+    )),
+    where {
+      Just(x) => pipe(
+        onlyWildcards,
+        map(discreteMatchToParams),
+        reduce((agg, item) => merge(agg, objOf(item.key, item.value)), {}),
+        config.dryRun
+          ? identity
+          : x.callback,
+        (_) => true
+      )(raw)
+      Nothing => false
+    }
+  )(routes)
+)(raw)
 
 /**
  * Produce a list of matched routes
  * 
  * @since 0.0.1
  */
-// instigate :: Config -> List RouteView -> String -> List String
+instigate :: Config -> List RouteView -> String -> Boolean
 export instigate = (config, routes, locationPath) => pipe(
   routeSegments,
   (given) => ifElse(
@@ -290,100 +187,12 @@ export instigate = (config, routes, locationPath) => pipe(
            ? warnOnPartialMatches
            : skipTrailingNoMatch,
       chain(identity),
-      (raw) => pipe(
-        map(pipe(
-          discreteMatchToIdentifiers
-        )),
-        join('/'),
-        (matched) => pipe(
-          find(pipe(
-            .path,
-            (x) => equals('/' ++ matched, x) || equals(matched, x)
-          )),
-          where {
-            Just(x) => pipe(
-              filter(where {
-                DiscreteExplicitMatch(a, _) => false
-                DiscreteWildcardMatch(a, b, _) => true
-                DiscreteNoMatch(_) => false
-              }),
-              map(discreteMatchToParams),
-              reduce((agg, item) => merge(agg, objOf(item.key, item.value)), {}),
-              x.callback,
-              (_) => true
-            )(raw)
-            Nothing => false
-          }
-        )(routes)
-      )(raw)
+      loadRoute(config, routes)
     ),
     always(false)
   )(given)
 )(locationPath)
 
-hex :: String -> String
-hex = (r) => (
-  'hsla(' ++ r ++ ', 100%, 50%, 1)'
-)
-random :: Number -> Number
-random = (x) => #- Math.random() * x -#
-
-randomHex :: Number -> String
-randomHex = (_) => pipe(
-  random,
-  show,
-  hex
-)(360)
-
-
-setBackground = (color, x) => #-{
-  document.body.style.background = color
-  return x
-}-#
-
-callback = (x) => pipe(
-  setBackground(randomHex(360)),
-  IO.trace('SO COOL')
-)(x)
-
-querySelector = (x) => #- document.querySelector(x) -#
-
-epsilonCallback = (params) => pipe(
-  querySelector,
-  (el) => #-{
-    setBackground('white')('nice')
-    // el.style.background = randomHex(false)
-    el.style.transition = "background 3s ease-out"
-    el.textContent = JSON.stringify(params, null, 2)
-  }-#
-)('#app')
-
-SAMPLE = [
-  { path: '/zeta', callback },
-  { path: 'alpha/beta', callback },
-  { path: 'gamma/delta/:epsilon',
-    callback: epsilonCallback
-  },
-  { path: '/name/:name/detail/:detail', callback },
-  { path: 'a/b/c/d/e/f/:g/h/i/j/:k', callback: epsilonCallback }
-]
-
-j2 = (x) => #- JSON.stringify(x, null, 2) -#
-CONFIG = {warnOnPartialMatches: true}
-
-testInstigate = instigate(CONFIG, SAMPLE)
-
-#-
-  if (typeof window !== 'undefined') {
-    window.onload = () => {
-      console.log('RUNNING!', new Date())
-      console.log("SAMPLE DATA", JSON.stringify(SAMPLE, null, 2))
-      console.log('here', getLocation())
-      // document.body.style.background = randomHex(false)
-      console.log(`instigate ${getLocation()} `, testInstigate(getLocation()))
-    }
-  }
--#
 
 #-
 {Browser}
