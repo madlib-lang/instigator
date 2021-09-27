@@ -4,6 +4,8 @@
   },
   "devDependencies": {
     "browser-sync": "^2.27.5",
-    "copy-and-watch": "^0.1.5"
+    "concurrently": "^6.2.1",
+    "copy-and-watch": "^0.1.5",
+    "watch": "^1.0.2"
   }
 }

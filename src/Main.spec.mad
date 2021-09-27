@@ -1,0 +1,82 @@
+import { assertEquals, test } from "TestTools"
+import { EQUAL, LESS, MORE } from "Compare"
+import {Just} from 'Maybe'
+
+import IO from 'IO'
+import {} from 'Number'
+import {} from 'String'
+import {} from 'Boolean'
+
+import { selectFrom, matchesURI, instigate, ExplicitMatch, WildcardMatch, NoMatch } from './Main'
+import {once2} from './Function'
+import type { Match } from './Main'
+
+SAMPLE_ROUTES = [
+  {path: '/alpha/beta'},
+  {path: '/gamma/delta'},
+  {path: '/name/:name/detail/:detail'},
+  {path: '/a/b/:c'}
+]
+
+taggedTest = (tag, fn, desc, input, expected) => {
+  return test(
+    tag ++ ' - ' ++ desc,
+    (_) => pipe(
+      fn,
+      assertEquals($, expected)
+    )(input)
+  )
+}
+
+test_selectFrom = taggedTest('selectFrom', selectFrom(SAMPLE_ROUTES))
+test_selectFrom('basic behavior', ['j','k','l'], [Just({path: 'm'})]) 
+
+// make unary
+matchesSample = matchesURI(
+  SAMPLE_ROUTES
+)
+test_matchesURI = taggedTest('matchesURI', matchesSample)
+
+test_matchesURI('gamma delta', ['gamma', 'delta'], true)
+test_matchesURI('gamma :jamma', ['gamma', ':jamma'], true)
+test_matchesURI('epsilon omega', ['epsilon', 'omega'], true)
+test_matchesURI('a b c', ['a', 'b', 'c'], true)
+test_matchesURI('a/b/:shit', ['a', 'b', ':shit'], true)
+
+test_matchesURI('omega', ['omega'], false)
+test_matchesURI('a', ['a'], false)
+test_matchesURI('b', ['b'], false)
+test_matchesURI('c', ['c'], false)
+
+instigateFromSamples = pipe(
+  instigate(
+    SAMPLE_ROUTES
+  )
+  // map(map(where {
+  //   ExplicitMatch(match) => ({kind: 'explicit', match})
+  //   WildcardMatch(match) => ({kind: 'wildcard', match})
+  //   NoMatch              => ({kind: 'no-match', match: ''})
+  // }))
+)
+test_instigate = taggedTest('instigate', instigateFromSamples)
+
+test_instigate('/a/b/:c', '/a/b/coooooool', [
+  [
+    {kind:"explicit", match:"a", value: "a"},
+    {kind:"explicit", match:"b", value: "b"},
+    {kind:"wildcard", match:":c", value: 'coooooool'}
+  ]
+])
+
+test_instigate('/name/arnaud/detail/points', '/name/arnaud/detail/points', [
+  [
+    {kind:"explicit", match:"name", value: 'name'},
+    {kind:"wildcard", match:"name", value: 'arnaud'},
+    {kind:"explicit", match:"detail", value: 'detail'},
+    {kind:"wildcard", match:"detail", value: 'points'}
+  ]
+])
+
+
+test_instigate('/nope', '/nope', [])
+

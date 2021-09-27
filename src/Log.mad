@@ -1,0 +1,15 @@
+/**
+ * Log sometimes
+ * 
+ * @since 0.0.1
+ */
+conditionalTaggedLog :: Boolean -> String -> String -> a -> a
+conditionalTaggedLog = (condition, tag, x, y) => (
+  condition
+    ? IO.trace(tag ++ x, y)
+    : y
+)
+
+CONFIG_SHOW_LOGS = true
+
+taggedLog = conditionalTaggedLog(CONFIG_SHOW_LOGS)

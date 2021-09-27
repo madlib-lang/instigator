@@ -1,0 +1,12 @@
+shout :: String -> (a -> b) -> a -> b
+shout = (tag, fn, a) => pipe(
+  taggedLog,
+  (tagger) => pipe(
+    tagger('input'),
+    fn,
+    tagger('output')
+  )(a)
+)(tag)
+
+shout2 = (tag, fn, a, b) => shout(tag, (_) => fn(a, b))
+shout3 = (tag, fn, a, b, c) => shout(tag, (_) => fn(a, b, c))

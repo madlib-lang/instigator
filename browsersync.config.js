@@ -1,4 +1,5 @@
 module.exports = {
+  single: true,
   ui: {
     port: 5051,
   },
@@ -8,6 +9,7 @@ module.exports = {
     baseDir: "./build",
   },
   reloadDebounce: 1500,
-  open: false,
+  open: true,
+  reloadOnRestart: true,
   notify: false,
 }

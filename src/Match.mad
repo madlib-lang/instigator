@@ -1,0 +1,20 @@
+import type { Match } from './Types'
+import { ExplicitMatch, WildcardMatch, NoMatch } from './Types'
+
+/**
+ * Convert a Match to a Boolean
+ *
+ * @since 0.0.1
+ * @example
+ * matchToBoolean(WildcardMatch('*')) // true
+ * matchToBoolean(ExplicitMatch('name')) // true
+ * matchToBoolean(NoMatch) // false
+ */
+matchToBoolean :: Match(String) -> Boolean
+export matchToBoolean = (
+  where {
+    ExplicitMatch(_) => true
+    WildcardMatch(_) => true
+    NoMatch => false
+  }
+)

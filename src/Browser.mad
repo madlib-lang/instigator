@@ -1,0 +1,6 @@
+// !TODO: change when nullary functions land
+getLocation :: () -> String
+export getLocation = (_) => #- window.location.pathname -#
+
+decodeURI :: String -> String
+export decodeURI = (x) => #- decodeURIComponent(x) -#

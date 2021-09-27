@@ -1,0 +1,87 @@
+import { Just, Nothing } from 'Maybe'
+import { filter, last, first, nth } from 'List'
+
+import type {LocationParts, Match, DiscreteMatch} from './Types'
+import { WildcardMatch, DiscreteWildcardMatch, NoMatch, DiscreteNoMatch, ExplicitMatch, DiscreteExplicitMatch} from './Types'
+import { addIndex } from './Function'
+import { tailString } from './String'
+
+imap = addIndex(map)
+
+/**
+ * Given a Match, convert it to a Discrete Match (which has additional index data)
+ *
+ * @since 0.0.1
+ */
+matchToDiscreteMatch :: LocationParts -> List (List (Match String)) -> List (List (DiscreteMatch String Number))
+export matchToDiscreteMatch = (given, routes) => pipe(
+  map(imap((m, index) => pipe(
+    where {
+      ExplicitMatch(x) => Just(
+        DiscreteExplicitMatch(x, index)
+      )
+      WildcardMatch(match) => pipe(
+        nth(index),
+        map((value) => (
+          DiscreteWildcardMatch(match, value, index)
+        ))
+      )(given)
+      NoMatch => Nothing
+    },
+    where {
+      Just(x) => x
+      Nothing => DiscreteNoMatch(index)
+    }
+  )(m)))
+)(routes)
+
+/**
+ * Convert a DiscreteMatch to a Boolean
+ *
+ * @since 0.0.1
+ * @example
+ * discreteMatchToBoolean(DiscreteWildcardMatch('*')) // true
+ * discreteMatchToBoolean(DiscreteExplicitMatch('name')) // true
+ * discreteMatchToBoolean(DiscreteNoMatch) // false
+ */
+discreteMatchToBoolean :: (DiscreteMatch String Number) -> Boolean
+export discreteMatchToBoolean = (
+  where {
+    DiscreteExplicitMatch(x, i)    => true
+    DiscreteWildcardMatch(x, y, i) => true
+    DiscreteNoMatch(i)             => false
+  }
+)
+
+export maybeToDiscreteMatch = (
+  where {
+    Just(x) => discreteMatchToBoolean(x)
+    Nothing => false
+  }
+)
+
+export skipLeadingNoMatch = filter(pipe(
+  first,
+  maybeToDiscreteMatch
+))
+export skipTrailingNoMatch = filter(pipe(
+  last,
+  maybeToDiscreteMatch 
+))
+
+export discreteMatchToIdentifiers = (
+  where {
+    DiscreteExplicitMatch(x, i)    => x
+    DiscreteWildcardMatch(k, v, i) => k
+    DiscreteNoMatch(i)             => ''
+  }
+)
+export discreteMatchToParams = (
+  where {
+    DiscreteExplicitMatch(value, _)      => ({key: 'explicit', value})
+    DiscreteWildcardMatch(key, value, _) => ({key: tailString(key), value})
+    DiscreteNoMatch(_)                   => ({key: 'no-match', value: ''})
+  }
+)
+
+

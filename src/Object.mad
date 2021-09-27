@@ -1,0 +1,5 @@
+merge :: a -> b -> c
+export merge = (a, b) => #- Object.assign({}, a, b) -#
+
+objOf :: String -> a -> b
+export objOf = (a, b) => #- ({[a]: b}) -#

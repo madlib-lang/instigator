@@ -1,0 +1,5 @@
+coerceString :: a -> String
+export coerceString = (x) => #- x.toString() -#
+
+coerceBool :: a -> Boolean
+export coerceBool = (x) => #- !!x -#

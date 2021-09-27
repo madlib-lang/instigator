@@ -1,0 +1,78 @@
+import {} from 'String'
+import {} from 'Number'
+import IO from 'IO'
+
+import {getLocation} from './Browser'
+import {instigate} from './Main'
+
+hex :: String -> String
+hex = (r) => (
+  'hsla(' ++ r ++ ', 100%, 50%, 1)'
+)
+random :: Number -> Number
+random = (x) => #- Math.random() * x -#
+
+randomHex :: Number -> String
+randomHex = (_) => pipe(
+  random,
+  show,
+  hex
+)(360)
+
+
+setBackground = (color, x) => #-{
+  document.body.style.background = color
+  return x
+}-#
+
+callback = (x) => pipe(
+  setBackground(randomHex(360)),
+  IO.trace('SO COOL')
+)(x)
+
+querySelector = (x) => #- document.querySelector(x) -#
+
+home = (params) => pipe(
+  querySelector,
+  (el) => #-{
+    setBackground('cyan')('nice')
+  }-#
+)('#app')
+
+epsilonCallback = (params) => pipe(
+  querySelector,
+  (el) => #-{
+    setBackground('white')('nice')
+    el.textContent = JSON.stringify(params, null, 2)
+  }-#
+)('#app')
+
+SAMPLE = [
+  { path: '/', callback: home },
+  { path: 'alpha/beta', callback },
+  { path: 'gamma/delta/:epsilon',
+    callback: epsilonCallback
+  },
+  { path: '/name/:name/detail/:detail', callback },
+  { path: 'a/b/c/d/e/f/:g/h/i/j/:k', callback: epsilonCallback }
+]
+
+j2 = (x) => #- JSON.stringify(x, null, 2) -#
+CONFIG = {
+  warnOnPartialMatches: true,
+  dryRun: false
+}
+
+testInstigate = instigate(CONFIG, SAMPLE)
+
+#-
+  if (typeof window !== 'undefined') {
+    window.onload = () => {
+      console.log('RUNNING!', new Date())
+      console.log("SAMPLE DATA", JSON.stringify(SAMPLE, null, 2))
+      console.log('here', getLocation())
+      // document.body.style.background = randomHex(false)
+      console.log(`instigate ${getLocation()} `, testInstigate(getLocation()))
+    }
+  }
+-#

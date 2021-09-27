@@ -1,60 +1,219 @@
 import IO from "IO"
 import { Just, Nothing } from 'Maybe'
-import type { Element } from 'MadUI'
-import { split } from 'String'
-import { find, len, slice } from 'List'
-import { ifElse, always, equals } from 'Function'
-import { lt } from 'Compare'
+// import type { Maybe } from 'Maybe'
+// import type { Element } from 'MadUI'
+import {} from 'Number'
+import {
+  reject,
+  last,
+  includes,
+  tail,
+  filter,
+  len,
+  join,
+  find
+} from 'List'
+import {
+  equals,
+  identity,
+  ifElse,
+  always,
+  any
+} from 'Function'
 
-// export type View a -> Element
+import { slashes, startsWith } from './String'
+import { addIndex } from './Function'
+import type { Config, LocationParts, RouteView, Match, DiscreteMatch } from './Types'
+import {
+  NoMatch, DiscreteNoMatch,
+  ExplicitMatch, DiscreteExplicitMatch, 
+  WildcardMatch, DiscreteWildcardMatch
+} from './Types'
+import {
+  matchToDiscreteMatch,
+  discreteMatchToParams,
+  maybeToDiscreteMatch,
+  discreteMatchToIdentifiers,
+  skipTrailingNoMatch,
+  skipLeadingNoMatch
+} from './DiscreteMatch'
+// import { objOf, merge} from './Object'
+import { matchToBoolean } from './Match'
 
-export alias RouteElement = {
-  path :: String,
-  el   :: Element 
-}
+imap = addIndex(map)
 
-// export type RouteView a = {
-//   path :: String,
-//   view :: View
-// }
-
-getLocation = (_) => #- window.location.pathname -#
-propOrWrappedDefault :: w -> z -> String -> x -> y
-propOrWrappedDefault = (Wrap, def, px, ob) => ( #- {
-  return (
-    !!ob[px] ?
-      Just(ob[px]) :
-      Wrap(def)
-  )
-} -# )
-matchURL = (routes, given) => pipe(
-  find(pipe(
-    propOrWrappedDefault(Nothing, '', 'path'),
-    IO.trace('path?'),
-    map(pipe(
-      split('/'),
-      slice(1, Infinity),
-      ifElse(
-        pipe(len, equals(len(given))),
-        equals(given),
-        always(false)
-      )
-    ))
-  ))
+/**
+ * split a String route into parts
+ * account for optional leading slash
+ *
+ * @since 0.0.1
+ */
+routeSegments :: String -> LocationParts
+routeSegments = ifElse(
+  startsWith('/'),
+  pipe(slashes, tail),
+  slashes
 )
 
-// instigate :: List Route -> List String
-instigate = (routes, locationPath) => pipe(
-  IO.trace('location'),
-  split('/'),
-  IO.trace('parts'),
-  ifElse(
-    pipe(len, lt(1)),
-    slice(1, Infinity),
-    always([])
-  ),
-  IO.trace('output'),
-  matchURL(routes)
+/**
+ * split a RouteView.path into parts
+ * account for optional leading slash
+ *
+ * @since 0.0.1
+ */
+initialPath :: RouteView -> LocationParts
+initialPath = pipe(
+  .path,
+  routeSegments
+)
+
+/**
+ * Match a route given a list of parts
+ *
+ * @since 0.0.1
+ */
+matchRoutes :: List String -> LocationParts -> List (Match String)
+matchRoutes = (routeStrings, given) => map(
+  (x) => startsWith(':', x)
+    ? WildcardMatch(x)
+    : x != '' && includes(x, given)
+      ? ExplicitMatch(x)
+      : NoMatch
+)(routeStrings)
+
+/**
+ * Match a route given a RouteView
+ *
+ * @since 0.0.1
+ */
+testURI :: List RouteView -> LocationParts -> List (List (Match String))
+export testURI = (routes, given) => map(
+  pipe(
+    initialPath,
+    matchRoutes($, given)
+  )
+)(routes)
+
+/**
+ * Given a list of routes and a location array, return a Boolean
+ *
+ * @since 0.0.1
+ * @example
+ * SAMPLES = [{path: '/cool'}]
+ * matchesURI(SAMPLES, '/cool') // true
+ */
+matchesURI :: List RouteView -> LocationParts -> Boolean
+export matchesURI = (routes, given) => pipe(
+  testURI(routes),
+  any(any(matchToBoolean))
+)(given)
+
+/**
+ * Given a list of routes and a location array, return a List of Lists of Matches
+ *
+ * @since 0.0.1
+ * @example
+ * SAMPLES = [{path: '/cool'}]
+ * transformPathToParams(SAMPLES, '/cool') // [[ExplicitMatch('/cool')]]
+ */
+transformPathToParams :: List RouteView -> LocationParts -> List (List (Match String))
+transformPathToParams = (routes, given) => pipe(
+  map(pipe(
+    initialPath,
+    ifElse(
+      pipe(len, (x) => x >= len(given)),
+      matchRoutes($, given),
+      always([NoMatch])
+    )
+  ))
+)(routes)
+
+/**
+ * If you have a route like `a/b/:c` but are given an `/a` route to match, `/a` is not valid by itself.
+ * Since it seems possible that you may have wanted a match, here's a warning.
+ *
+ * @since 0.0.1
+ */
+warnOnPartialMatches :: List (List (DiscreteMatch String Number)) -> List (List (DiscreteMatch String Number))
+warnOnPartialMatches = (given) => pipe(
+  reject(pipe(
+    last,
+    maybeToDiscreteMatch
+  )),
+  map(pipe(
+    map(discreteMatchToIdentifiers),
+    filter((z) => z != ''),
+    join('/'),
+    (matched) => '/' ++ matched,
+    IO.trace('There is a partially matchable route which is not explicitly defined but could be:')
+  )),
+  (_) => skipTrailingNoMatch(given)
+)(given)
+
+/**
+ * Filter for Wildcards
+ *
+ * @since 0.0.1
+ */
+onlyWildcards = filter(where {
+  DiscreteExplicitMatch(a, _) => false
+  DiscreteWildcardMatch(a, b, _) => true
+  DiscreteNoMatch(_) => false
+})
+
+/**
+ * Given some DiscreteMatches, conditionally hit a callback
+ *
+ * @since 0.0.1
+ */
+loadRoute :: Config -> List RouteView -> List (DiscreteMatch String Number) -> Boolean
+loadRoute = (config, routes, raw) => pipe(
+  map(discreteMatchToIdentifiers),
+  join('/'),
+  (matched) => pipe(
+    find(pipe(
+      .path,
+      (x) => equals('/' ++ matched, x) || equals(matched, x)
+    )),
+    where {
+      Just(x) => pipe(
+        onlyWildcards,
+        map(discreteMatchToParams),
+        map((m) => <m.key, m.value>),
+        config.dryRun
+          ? identity
+          : x.callback,
+        (_) => true
+      )(raw)
+      Nothing => false
+    }
+  )(routes)
+)(raw)
+
+/**
+ * Match against a list of RouteViews
+ * conditionally fire a side-effect
+ * return success
+ * 
+ * @since 0.0.1
+ */
+instigate :: Config -> List RouteView -> String -> Boolean
+export instigate = (config, routes, locationPath) => pipe(
+  routeSegments,
+  (given) => ifElse(
+    matchesURI(routes),
+    pipe(
+      transformPathToParams(routes),
+      matchToDiscreteMatch(given),
+      skipLeadingNoMatch,
+      config.warnOnPartialMatches
+           ? warnOnPartialMatches
+           : skipTrailingNoMatch,
+      chain(identity),
+      loadRoute(config, routes)
+    ),
+    always(false)
+  )(given)
 )(locationPath)
 
 #-

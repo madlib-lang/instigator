@@ -1,0 +1,14 @@
+import {split} from 'String'
+
+/* !TODO - move this to prelude/String */
+startsWith :: String -> String -> Boolean
+export startsWith = (needle, haystack) => #- haystack.startsWith(needle) -#
+
+endsWith :: String -> String -> Boolean
+export endsWith = (needle, haystack) => #- haystack.endsWith(needle) -#
+
+slashes :: String -> List String
+export slashes = split('/')
+
+tailString :: String -> String
+export tailString = (x) => #- x.slice(1) -#
