@@ -143,11 +143,9 @@ onlyWildcards = filter(where {
   DiscreteNoMatch(_) => false
 })
 
-instigate :: Config -> List RouteView -> List (DiscreteMatch String Number) -> Boolean
+loadRoute :: Config -> List RouteView -> List (DiscreteMatch String Number) -> Boolean
 loadRoute = (config, routes, raw) => pipe(
-  map(pipe(
-    discreteMatchToIdentifiers
-  )),
+  map(discreteMatchToIdentifiers),
   join('/'),
   (matched) => pipe(
     find(pipe(
